@@ -1,0 +1,163 @@
+"""反应堆数据模型：网格、柱子、全局控制参数。"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Optional
+
+from rbmk.model.components import (
+    COMPONENT_INFO,
+    ComponentType,
+    ControlGroup,
+    FUELS,
+    FuelType,
+)
+
+
+CONTROL_TYPES = (ComponentType.CONTROL, ComponentType.CONTROL_AUTO)
+FUEL_TYPES = (ComponentType.FUEL, ComponentType.FUEL_SIM, ComponentType.BREEDER)
+
+
+@dataclass
+class Cell:
+    comp: ComponentType
+    fuel: Optional[str] = None          # 燃料 key（FUEL / FUEL_SIM / BREEDER）
+    group: ControlGroup = ControlGroup.RED  # 控制棒颜色组
+    insertion: Optional[float] = None   # 单根插入深度 0..100；None=用分组/全局
+    burnup: float = 0.0                 # 0..1
+    xenon: float = 0.0                  # 0..1
+    temp: float = 25.0                  # 冷却态温度
+    heat: float = 0.0                   # 当前热功率（模型单位）
+    flux: float = 0.0                   # 当前中子通量
+    steam: float = 0.0                  # 蒸汽
+    water: float = 100.0                # 冷却水
+
+    @property
+    def fuel_type(self) -> Optional[FuelType]:
+        return FUELS.get(self.fuel) if self.fuel else None
+
+    def to_dict(self) -> dict:
+        return {
+            "comp": self.comp.value,
+            "fuel": self.fuel,
+            "group": self.group.value,
+            "insertion": self.insertion,
+            "burnup": self.burnup,
+            "xenon": self.xenon,
+            "temp": self.temp,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Cell":
+        return cls(
+            comp=ComponentType(d["comp"]),
+            fuel=d.get("fuel"),
+            group=ControlGroup(d.get("group", "RED")),
+            insertion=d.get("insertion"),
+            burnup=float(d.get("burnup", 0.0)),
+            xenon=float(d.get("xenon", 0.0)),
+            temp=float(d.get("temp", 25.0)),
+        )
+
+
+@dataclass
+class ReactorModel:
+    rows: int = 15
+    cols: int = 15
+    grid: list[list[Optional[Cell]]] = field(default_factory=list)
+
+    # 全局参数
+    global_insertion: float = 100.0                     # 全局插入深度 0..100
+    group_insertion: dict[str, Optional[float]] = field(default_factory=dict)  # 分组覆盖
+    coolant_flow: float = 50.0                          # 冷却流量 %
+    control_mode: str = "global"                        # global | group | single
+
+    def __post_init__(self):
+        if not self.grid:
+            self.grid = [[None for _ in range(self.cols)] for _ in range(self.rows)]
+
+    # ---------- 网格操作 ----------
+    def cell_at(self, r: int, c: int) -> Optional[Cell]:
+        if 0 <= r < self.rows and 0 <= c < self.cols:
+            return self.grid[r][c]
+        return None
+
+    def place(self, r: int, c: int, comp: ComponentType, **kw) -> Cell:
+        if not (0 <= r < self.rows and 0 <= c < self.cols):
+            raise IndexError("坐标越界")
+        cell = Cell(comp=comp, **kw)
+        self.grid[r][c] = cell
+        return cell
+
+    def erase(self, r: int, c: int) -> None:
+        if 0 <= r < self.rows and 0 <= c < self.cols:
+            self.grid[r][c] = None
+
+    def clear(self) -> None:
+        self.grid = [[None for _ in range(self.cols)] for _ in range(self.rows)]
+
+    # ---------- 统计 ----------
+    def iter_cells(self):
+        for r in range(self.rows):
+            for c in range(self.cols):
+                cell = self.grid[r][c]
+                if cell is not None:
+                    yield r, c, cell
+
+    def counts(self) -> dict[ComponentType, int]:
+        out = {t: 0 for t in ComponentType}
+        for _, _, cell in self.iter_cells():
+            out[cell.comp] += 1
+        return out
+
+    def fuel_count(self) -> int:
+        return sum(1 for _, _, c in self.iter_cells() if c.comp in FUEL_TYPES and c.fuel)
+
+    def control_cells(self) -> list[tuple[int, int, Cell]]:
+        return [(r, c, cell) for r, c, cell in self.iter_cells() if cell.comp in CONTROL_TYPES]
+
+    # ---------- 控制棒有效插入深度 ----------
+    def effective_insertion(self, cell: Cell) -> float:
+        """单根 > 分组 > 全局。返回 0..100。"""
+        if cell.comp not in CONTROL_TYPES:
+            return 0.0
+        if cell.insertion is not None:
+            return _clamp(cell.insertion, 0.0, 100.0)
+        g = self.group_insertion.get(cell.group.value)
+        if g is not None:
+            return _clamp(g, 0.0, 100.0)
+        return _clamp(self.global_insertion, 0.0, 100.0)
+
+    # ---------- 序列化 ----------
+    def to_dict(self) -> dict:
+        return {
+            "version": 1,
+            "rows": self.rows,
+            "cols": self.cols,
+            "global_insertion": self.global_insertion,
+            "group_insertion": dict(self.group_insertion),
+            "coolant_flow": self.coolant_flow,
+            "control_mode": self.control_mode,
+            "cells": [
+                {"r": r, "c": c, **cell.to_dict()}
+                for r, c, cell in self.iter_cells()
+            ],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ReactorModel":
+        m = cls(
+            rows=int(d.get("rows", 15)),
+            cols=int(d.get("cols", 15)),
+            global_insertion=float(d.get("global_insertion", 100.0)),
+            group_insertion=dict(d.get("group_insertion", {})),
+            coolant_flow=float(d.get("coolant_flow", 50.0)),
+            control_mode=d.get("control_mode", "global"),
+        )
+        for item in d.get("cells", []):
+            cell = Cell.from_dict(item)
+            m.grid[int(item["r"])][int(item["c"])] = cell
+        return m
+
+
+def _clamp(v: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, float(v)))

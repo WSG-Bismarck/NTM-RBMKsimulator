@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RBMK 反应堆模拟器 — 界面原型</title>
+<style>
+  :root{
+    --bg:#0f1216;
+    --surface:#171c22;
+    --surface-2:#1c222a;
+    --border:#262d36;
+    --ink:#e6edf3;
+    --muted:#8b98a5;
+    --accent:#f0a13a;
+    --danger:#e5484d;
+    --ok:#3ecf8e;
+    --cyan:#4fc3e8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    background:#0a0c0f;
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    color:var(--ink);
+    padding:22px;
+    display:flex;justify-content:center;align-items:flex-start;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{
+    width:1180px;min-width:1180px;
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:10px;
+    box-shadow:0 20px 60px rgba(0,0,0,.55);
+    overflow:hidden;
+    display:flex;flex-direction:column;
+  }
+
+  /* title bar */
+  .titlebar{
+    height:36px;display:flex;align-items:center;gap:10px;
+    padding:0 14px;background:var(--surface);
+    border-bottom:1px solid var(--border);
+  }
+  .titlebar .dot{width:11px;height:11px;border-radius:50%;}
+  .dot.r{background:#ff5f57;}.dot.y{background:#febc2e;}.dot.g{background:#28c840;}
+  .titlebar .appname{font-size:13px;color:var(--muted);margin-left:6px;}
+  .titlebar .badge{
+    margin-left:auto;font-size:11px;color:var(--muted);
+    border:1px solid var(--border);border-radius:5px;padding:2px 8px;
+  }
+
+  /* toolbar */
+  .toolbar{
+    height:46px;display:flex;align-items:center;gap:8px;
+    padding:0 12px;background:var(--surface);
+    border-bottom:1px solid var(--border);
+  }
+  .btn{
+    height:30px;padding:0 12px;border-radius:6px;
+    background:var(--surface-2);border:1px solid var(--border);
+    color:var(--ink);font-size:13px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .btn:hover{background:#242b34;border-color:#333c48;}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#16120a;font-weight:600;}
+  .btn.primary:hover{background:#ffb95c;}
+  .btn.danger{background:var(--danger);border-color:var(--danger);color:#fff;font-weight:600;}
+  .toolbar .sep{width:1px;height:24px;background:var(--border);margin:0 4px;}
+  .speed-group{display:flex;gap:4px;margin-left:auto;align-items:center;}
+  .speed-group label{font-size:12px;color:var(--muted);margin-right:4px;}
+  .speed{
+    height:30px;min-width:34px;padding:0 10px;border-radius:6px;
+    background:var(--surface-2);border:1px solid var(--border);
+    color:var(--muted);font-size:13px;cursor:pointer;
+    font-variant-numeric:tabular-nums;
+  }
+  .speed:hover{color:var(--ink);border-color:#333c48;}
+  .speed.active{background:#2a2f1f;border-color:var(--accent);color:var(--accent);font-weight:600;}
+
+  /* main */
+  .main{flex:1;display:grid;grid-template-columns:158px 1fr 268px;min-height:0;}
+
+  /* palette */
+  .palette{
+    background:var(--surface);border-right:1px solid var(--border);
+    padding:10px;overflow-y:auto;
+  }
+  .palette h4,.inspector h4{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:6px 2px 8px;font-weight:600;}
+  .comp{
+    display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;
+    cursor:pointer;font-size:13px;color:var(--ink);margin-bottom:3px;
+    border:1px solid transparent;
+  }
+  .comp:hover{background:var(--surface-2);}
+  .comp.active{background:#242b34;border-color:var(--accent);}
+  .comp .swatch{width:14px;height:14px;border-radius:4px;flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(0,0,0,.3);}
+  .comp .n{margin-left:auto;font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;}
+
+  /* canvas */
+  .canvas-wrap{
+    display:flex;flex-direction:column;min-width:0;min-height:0;
+    background:
+      radial-gradient(circle at 1px 1px, #1b222a 1px, transparent 0) 0 0/22px 22px,
+      var(--bg);
+  }
+  .canvas-bar{
+    height:34px;display:flex;align-items:center;gap:8px;padding:0 12px;
+    border-bottom:1px solid var(--border);font-size:12px;color:var(--muted);
+  }
+  .canvas-bar .hint{margin-left:auto;font-size:11px;}
+  .canvas-scroll{
+    flex:1;display:flex;align-items:center;justify-content:center;
+    overflow:auto;padding:18px;
+  }
+  .grid{
+    display:grid;gap:2px;
+    background:#0b0e11;border:1px solid var(--border);border-radius:6px;
+    padding:6px;
+  }
+  .cell{
+    width:26px;height:26px;border-radius:4px;cursor:crosshair;
+    background:#151a20;border:1px solid #1f262e;position:relative;
+    transition:background .08s;
+  }
+  .cell:hover{border-color:#3a4450;}
+  .cell.filled{border-color:transparent;}
+  .cell.selected{outline:2px solid var(--accent);outline-offset:1px;}
+  .cell.hot{animation:pulse .5s infinite;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(229,72,77,0);}50%{box-shadow:0 0 8px 2px rgba(229,72,77,.7);}}
+
+  /* inspector */
+  .inspector{
+    background:var(--surface);border-left:1px solid var(--border);
+    display:flex;flex-direction:column;min-height:0;
+  }
+  .tabs{display:flex;border-bottom:1px solid var(--border);}
+  .tab{
+    flex:1;padding:9px 4px;text-align:center;font-size:12px;color:var(--muted);
+    cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;
+  }
+  .tab:hover{color:var(--ink);}
+  .tab.active{color:var(--ink);border-bottom-color:var(--accent);font-weight:600;}
+  .panel{flex:1;overflow-y:auto;padding:12px;font-size:13px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;}
+  .field .val{float:right;color:var(--accent);font-variant-numeric:tabular-nums;}
+  input[type=range]{width:100%;accent-color:var(--accent);}
+  select,input[type=text],input[type=number]{
+    width:100%;background:var(--surface-2);border:1px solid var(--border);
+    color:var(--ink);border-radius:5px;padding:6px 8px;font-size:13px;
+  }
+  .kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;}
+  .kpi .box{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;}
+  .kpi .box .k{font-size:11px;color:var(--muted);}
+  .kpi .box .v{font-size:15px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;}
+  .kpi .box .v.warn{color:var(--accent);}
+  .kpi .box .v.danger{color:var(--danger);}
+  .emptystate{color:var(--muted);font-size:12px;line-height:1.7;}
+
+  /* output */
+  .output{
+    height:196px;background:var(--surface);border-top:1px solid var(--border);
+    display:grid;grid-template-columns:1fr 300px;
+  }
+  .chartbox{padding:10px 14px;min-width:0;}
+  .chartbox .charthead{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--muted);margin-bottom:4px;}
+  .legend{display:flex;gap:12px;margin-left:auto;}
+  .legend span{display:inline-flex;align-items:center;gap:5px;}
+  .legend i{width:10px;height:3px;border-radius:2px;display:inline-block;}
+  canvas{width:100%;height:150px;display:block;}
+  .metrics{padding:12px 14px;border-left:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:start;}
+  .m{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;}
+  .m .k{font-size:11px;color:var(--muted);}
+  .m .v{font-size:15px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;}
+  .m .v.hot{color:var(--danger);}
+  .m .v.warn{color:var(--accent);}
+
+  /* statusbar */
+  .statusbar{
+    height:28px;display:flex;align-items:center;gap:16px;padding:0 14px;
+    background:var(--surface);border-top:1px solid var(--border);
+    font-size:12px;color:var(--muted);
+  }
+  .statusbar .state{padding:1px 10px;border-radius:20px;font-weight:600;font-size:11px;}
+  .state.ok{background:rgba(62,207,142,.15);color:var(--ok);}
+  .state.warn{background:rgba(240,161,58,.15);color:var(--accent);}
+  .state.danger{background:rgba(229,72,77,.15);color:var(--danger);}
+  .statusbar .grow{margin-left:auto;font-variant-numeric:tabular-nums;}
+  .statusbar b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="appname">RBMK 反应堆模拟器 — HBM 核科技 1.7.10</span>
+    <span class="badge">界面原型 · 数值为示意</span>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn">新建</button>
+    <button class="btn">打开</button>
+    <button class="btn">保存</button>
+    <button class="btn">导出分享</button>
+    <span class="sep"></span>
+    <button class="btn primary" id="runBtn">▶ 运行</button>
+    <div class="speed-group">
+      <label>模拟速度</label>
+      <button class="speed" data-speed="0">⏸</button>
+      <button class="speed" data-speed="1">1x</button>
+      <button class="speed" data-speed="10">10x</button>
+      <button class="speed" data-speed="100">100x</button>
+      <button class="speed active" data-speed="1000">1000x</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <aside class="palette">
+      <h4>组件</h4>
+      <div id="paletteList"></div>
+      <h4 style="margin-top:14px;">工具</h4>
+      <div id="toolList"></div>
+    </aside>
+
+    <section class="canvas-wrap">
+      <div class="canvas-bar">
+        <span>俯视堆芯</span>
+        <span class="hint">单击放置 · 按住拖动连续放 · 右键删除 · 滚轮缩放</span>
+      </div>
+      <div class="canvas-scroll">
+        <div class="grid" id="grid"></div>
+      </div>
+    </section>
+
+    <aside class="inspector">
+      <div class="tabs">
+        <div class="tab active" data-tab="prop">选中属性</div>
+        <div class="tab" data-tab="overview">反应堆总览</div>
+        <div class="tab" data-tab="control">模拟控制</div>
+        <div class="tab" data-tab="risk">风险预警</div>
+      </div>
+      <div class="panel" id="panel"></div>
+    </aside>
+  </div>
+
+  <div class="output">
+    <div class="chartbox">
+      <div class="charthead">
+        <span>实时曲线</span>
+        <div class="legend">
+          <span><i style="background:#ff6b35"></i>温度</span>
+          <span><i style="background:#f0a13a"></i>功率</span>
+          <span><i style="background:#4fc3e8"></i>中子通量</span>
+        </div>
+      </div>
+      <canvas id="chart" width="620" height="150"></canvas>
+    </div>
+    <div class="metrics" id="metrics"></div>
+  </div>
+
+  <div class="statusbar">
+    <span>速度 <b id="sbSpeed">1000x</b></span>
+    <span>已运行 <b id="sbTime">00:00:00</b></span>
+    <span class="state ok" id="sbState">正常运行</span>
+    <span class="grow">预计安全运行时长 <b id="sbSafety">稳定（无熔毁风险）</b></span>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const COMPONENTS = [
+    {id:'fuel',      name:'燃料棒',        color:'#e8a33d'},
+    {id:'control',   name:'控制棒',        color:'#c8d2db'},
+    {id:'source',    name:'中子源',        color:'#4fc3e8'},
+    {id:'reflector', name:'中子反射体',    color:'#aab4be'},
+    {id:'absorber',  name:'中子吸收体',    color:'#a78bd6'},
+    {id:'boiler',    name:'锅炉·蒸汽通道', color:'#5aa9e6'},
+    {id:'coolant',   name:'冷却水通道',    color:'#38b2a6'},
+    {id:'concrete',  name:'混凝土外壳',    color:'#6b7280'},
+  ];
+  const TOOLS = [
+    {id:'select', name:'选择', color:'#f0a13a'},
+    {id:'erase',  name:'擦除', color:'#e5484d'},
+  ];
+
+  const ROWS=16, COLS=16;
+  let grid = [];            // grid[r][c] = {type} | null
+  let selectedTool = 'fuel'; // tool id or component id
+  let selectedCell = null;   // {r,c}
+  let tab = 'prop';
+  let painting = false;
+
+  const state = {
+    running:false, speed:1000, simTime:0,
+    control:60, coolant:50,
+    temp:260, power:900, flux:0.55, steam:420, fuel:100,
+  };
+  const history = {temp:[], power:[], flux:[]};
+
+  // ---------- build ----------
+  const gridEl = document.getElementById('grid');
+  const panelEl = document.getElementById('panel');
+  const metricsEl = document.getElementById('metrics');
+  const chartEl = document.getElementById('chart');
+
+  function buildGrid(){
+    gridEl.style.gridTemplateColumns = `repeat(${COLS}, 26px)`;
+    grid = [];
+    for(let r=0;r<ROWS;r++){
+      const row=[];
+      for(let c=0;c<COLS;c++) row.push(null);
+      grid.push(row);
+    }
+    // 预摆一个示例堆芯：一圈混凝土 + 中央燃料棒 + 几根控制棒 + 一个中子源
+    const preset = [
+      [5,7,'fuel'],[6,7,'fuel'],[7,7,'fuel'],[8,7,'fuel'],
+      [5,8,'fuel'],[6,8,'fuel'],[7,8,'fuel'],[8,8,'fuel'],
+      [5,6,'control'],[6,6,'control'],[7,6,'control'],[8,6,'control'],
+      [7,5,'source'],[7,9,'boiler'],[5,9,'coolant'],
+    ];
+    preset.forEach(([r,c,t])=>{ grid[r][c]={type:t}; });
+    renderGrid();
+  }
+
+  function renderGrid(){
+    gridEl.innerHTML='';
+    const hot = state.temp > 700;
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        const d=document.createElement('div');
+        d.className='cell';
+        d.dataset.r=r; d.dataset.c=c;
+        const cell=grid[r][c];
+        if(cell){
+          const comp=COMPONENTS.find(x=>x.id===cell.type);
+          d.classList.add('filled');
+          d.style.background = comp?comp.color:'#555';
+          if(comp && comp.id==='fuel' && hot) d.classList.add('hot');
+        }
+        if(selectedCell && selectedCell.r===r && selectedCell.c===c) d.classList.add('selected');
+        gridEl.appendChild(d);
+      }
+    }
+  }
+
+  function renderPalette(){
+    const list=document.getElementById('paletteList');
+    list.innerHTML='';
+    COMPONENTS.forEach(comp=>{
+      const d=document.createElement('div');
+      d.className='comp'+(selectedTool===comp.id?' active':'');
+      d.innerHTML=`<span class="swatch" style="background:${comp.color}"></span>${comp.name}`;
+      d.onclick=()=>{ selectedTool=comp.id; selectedCell=null; renderPalette(); renderGrid(); renderPanel(); };
+      list.appendChild(d);
+    });
+    const tools=document.getElementById('toolList');
+    tools.innerHTML='';
+    TOOLS.forEach(t=>{
+      const d=document.createElement('div');
+      d.className='comp'+(selectedTool===t.id?' active':'');
+      d.innerHTML=`<span class="swatch" style="background:${t.color}"></span>${t.name}`;
+      d.onclick=()=>{ selectedTool=t.id; selectedCell=null; renderPalette(); renderGrid(); renderPanel(); };
+      tools.appendChild(d);
+    });
+  }
+
+  // ---------- grid interaction ----------
+  function paintCell(r,c){
+    if(selectedTool==='select'){
+      selectedCell = grid[r][c] ? {r,c} : null;
+      if(selectedCell) tab='prop', syncTabs();
+      renderGrid(); renderPanel(); return;
+    }
+    if(selectedTool==='erase'){ grid[r][c]=null; }
+    else { grid[r][c]={type:selectedTool}; }
+    renderGrid(); renderPanel();
+  }
+
+  gridEl.addEventListener('mousedown', e=>{
+    const cell=e.target.closest('.cell'); if(!cell) return;
+    e.preventDefault(); painting=true;
+    paintCell(+cell.dataset.r, +cell.dataset.c);
+  });
+  gridEl.addEventListener('mouseover', e=>{
+    if(!painting) return;
+    const cell=e.target.closest('.cell'); if(!cell) return;
+    paintCell(+cell.dataset.r, +cell.dataset.c);
+  });
+  window.addEventListener('mouseup', ()=>{ painting=false; });
+  gridEl.addEventListener('contextmenu', e=>{
+    const cell=e.target.closest('.cell'); if(!cell) return;
+    e.preventDefault(); grid[+cell.dataset.r][+cell.dataset.c]=null;
+    renderGrid(); renderPanel();
+  });
+
+  // ---------- tabs ----------
+  function syncTabs(){
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===tab));
+  }
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.onclick=()=>{ tab=t.dataset.tab; syncTabs(); renderPanel(); };
+  });
+
+  // ---------- inspector ----------
+  function counts(){
+    const flat=grid.flat().filter(Boolean);
+    const cnt=t=>flat.filter(x=>x.type===t).length;
+    return {fuel:cnt('fuel'), control:cnt('control'), source:cnt('source'),
+            boiler:cnt('boiler'), coolant:cnt('coolant'), total:flat.length};
+  }
+
+  function renderPanel(){
+    const c=counts();
+    if(tab==='prop'){
+      if(!selectedCell || !grid[selectedCell.r][selectedCell.c]){
+        panelEl.innerHTML = `<div class="emptystate">未选中任何柱子。<br><br>点击网格里的某个柱子，这里会显示它的类型和可调参数（燃料类型、控制棒深度、冷却流量等）。</div>`;
+        return;
+      }
+      const cell=grid[selectedCell.r][selectedCell.c];
+      const comp=COMPONENTS.find(x=>x.id===cell.type);
+      let extra='';
+      if(cell.type==='fuel'){
+        extra=`<div class="field"><label>燃料类型</label><select><option>天然铀</option><option>低浓缩铀</option><option selected>高浓缩铀</option><option>MOX</option><option>钚</option></select></div>
+               <div class="field"><label>富集度</label><input type="range" min="0" max="100" value="65"><span class="val" style="float:none">65%</span></div>`;
+      } else if(cell.type==='control'){
+        extra=`<div class="field"><label>插入深度 <span class="val">${state.control}%</span></label><input type="range" min="0" max="100" value="${state.control}" oninput="window.__setControl(this.value)"></div>`;
+      } else if(cell.type==='coolant'){
+        extra=`<div class="field"><label>冷却流量 <span class="val">${state.coolant}%</span></label><input type="range" min="0" max="100" value="${state.coolant}" oninput="window.__setCoolant(this.value)"></div>`;
+      } else if(cell.type==='boiler'){
+        extra=`<div class="field"><label>产出</label><div class="emptystate">蒸汽 → 供涡轮发电（示意）</div></div>`;
+      } else {
+        extra=`<div class="field"><label>说明</label><div class="emptystate">${comp?comp.name:'该组件'}在模拟中按其模组机制参与中子/热传递（示意）。</div></div>`;
+      }
+      panelEl.innerHTML = `<div class="field"><label>位置</label><span>第 ${selectedCell.r+1} 行 · 第 ${selectedCell.c+1} 列</span></div>
+        <div class="field"><label>类型</label><span style="display:inline-flex;align-items:center;gap:6px;"><span class="swatch" style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${comp.color}"></span>${comp.name}</span></div>
+        ${extra}`;
+    }
+    else if(tab==='overview'){
+      panelEl.innerHTML = `
+        <div class="field"><label>网格尺寸</label><span>${ROWS} × ${COLS}</span></div>
+        <div class="kpi">
+          <div class="box"><div class="k">燃料棒</div><div class="v">${c.fuel}</div></div>
+          <div class="box"><div class="k">控制棒</div><div class="v">${c.control}</div></div>
+          <div class="box"><div class="k">中子源</div><div class="v">${c.source}</div></div>
+          <div class="box"><div class="k">锅炉/蒸汽通道</div><div class="v">${c.boiler}</div></div>
+          <div class="box"><div class="k">冷却水通道</div><div class="v">${c.coolant}</div></div>
+          <div class="box"><div class="k">总柱子数</div><div class="v">${c.total}</div></div>
+        </div>
+        <div class="field" style="margin-top:12px;"><label>布局校验（示意）</label><div class="emptystate">${c.fuel>0 && c.control>0 ? '✓ 有燃料棒和控制棒，可启动' : '⚠ 需至少 1 根燃料棒和 1 根控制棒'}</div></div>`;
+    }
+    else if(tab==='control'){
+      panelEl.innerHTML = `
+        <div class="field"><label>控制棒总插入深度 <span class="val">${state.control}%</span></label><input type="range" min="0" max="100" value="${state.control}" oninput="window.__setControl(this.value)"></div>
+        <div class="field"><label>冷却水流量 <span class="val">${state.coolant}%</span></label><input type="range" min="0" max="100" value="${state.coolant}" oninput="window.__setCoolant(this.value)"></div>
+        <div class="field"><label>目标功率（示意）</label><input type="number" value="1500" disabled style="opacity:.6"></div>
+        <div class="field"><label>自动停堆</label><input type="checkbox"> 温度超限时自动插入控制棒</div>
+        <div class="emptystate">运行中可实时拖动控制棒和冷却流量，观察下方曲线与状态变化。</div>`;
+    }
+    else if(tab==='risk'){
+      const st = riskState();
+      const cls = st.level==='danger'?'danger':(st.level==='warn'?'warn':'ok');
+      const txt = st.level==='danger'?'危险 · 接近熔毁':(st.level==='warn'?'警告 · 温度偏高':'正常 · 无风险');
+      panelEl.innerHTML = `
+        <div class="field"><label>当前状态</label><span class="state ${cls}">${txt}</span></div>
+        <div class="field"><label>堆芯温度</label><span class="val">${Math.round(state.temp)} °C</span></div>
+        <div class="field"><label>预计安全运行时长</label><div class="val" style="float:none">${safetyText()}</div></div>
+        <div class="field"><label>预警阈值（示意）</label><div class="emptystate">警告 ≥ 700°C · 熔毁 ≥ 1000°C</div></div>
+        <div class="emptystate">正式版将按模组真实数值计算：当功率/温度/中子通量逼近危险边界时提前告警，并给出从运行开始到发生事故的预计时间。</div>`;
+    }
+  }
+
+  // ---------- simulation ----------
+  function fuelCount(){ return grid.flat().filter(x=>x && x.type==='fuel').length; }
+  function reactivity(){
+    const f=fuelCount();
+    return Math.max(0, (0.35 + f*0.028) * (1 - (state.control/100)*0.88));
+  }
+  function targetTemp(){
+    const p=reactivity()*3200;
+    return 80 + p*0.22 - state.coolant*4.2;
+  }
+  function riskState(){
+    if(state.temp>=1000) return {level:'danger'};
+    if(state.temp>=700) return {level:'warn'};
+    return {level:'ok'};
+  }
+  function safetyText(){
+    const target=targetTemp(), danger=1000;
+    if(target<=700) return '稳定（无熔毁风险）';
+    const rate=(target-state.temp)*0.05;
+    if(rate<=0.0001) return '稳定（无熔毁风险）';
+    const t=Math.max(0,(danger-state.temp)/rate);
+    return fmt(t);
+  }
+  function fmt(s){
+    if(!isFinite(s)) return '∞';
+    const h=Math.floor(s/3600), m=Math.floor(s%3600/60), sec=Math.floor(s%60);
+    const p=n=>String(n).padStart(2,'0');
+    return `${p(h)}:${p(m)}:${p(sec)}`;
+  }
+
+  window.__setControl=v=>{ state.control=+v; renderPanel(); renderGrid(); };
+  window.__setCoolant=v=>{ state.coolant=+v; renderPanel(); };
+
+  function tick(){
+    if(!state.running || state.speed<=0) return;
+    const dt=0.12*state.speed;
+    state.simTime+=dt;
+    const react=reactivity();
+    const pTarget=react*3200;
+    state.power = pTarget + (Math.random()-0.5)*80;
+    state.flux = Math.max(0, 0.2 + (state.power/3200)*0.8);
+    const tTarget=targetTemp();
+    state.temp += (tTarget-state.temp)*dt*0.05;
+    state.steam = Math.max(0, (state.temp-100)*1.3);
+    state.fuel = Math.max(0, state.fuel - dt*(state.power/3200)*0.004);
+
+    history.temp.push(state.temp/1200);
+    history.power.push(state.power/4000);
+    history.flux.push(state.flux);
+    const MAX=150;
+    if(history.temp.length>MAX){ history.temp.shift(); history.power.shift(); history.flux.shift(); }
+
+    drawChart();
+    renderMetrics();
+    renderStatus();
+    renderGrid();
+  }
+
+  function drawChart(){
+    const ctx=chartEl.getContext('2d');
+    const W=chartEl.width, H=chartEl.height;
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle='#20272f'; ctx.lineWidth=1;
+    for(let i=1;i<=4;i++){
+      const y=H*i/5;
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+    }
+    const series=[
+      {arr:history.temp, color:'#ff6b35'},
+      {arr:history.power, color:'#f0a13a'},
+      {arr:history.flux, color:'#4fc3e8'},
+    ];
+    series.forEach(s=>{
+      if(s.arr.length<2) return;
+      ctx.strokeStyle=s.color; ctx.lineWidth=1.6;
+      ctx.beginPath();
+      s.arr.forEach((v,i)=>{
+        const x=i/(150-1)*W;
+        const y=H - v*H;
+        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+    });
+  }
+
+  function renderMetrics(){
+    const t=state.temp, rs=riskState();
+    const tCls = t>=1000?'hot':(t>=700?'warn':'');
+    metricsEl.innerHTML = `
+      <div class="m"><div class="k">堆芯温度</div><div class="v ${tCls}">${Math.round(t)} °C</div></div>
+      <div class="m"><div class="k">瞬时功率</div><div class="v">${Math.round(state.power)} MW</div></div>
+      <div class="m"><div class="k">累计发电量</div><div class="v">${(state.simTime*state.power/3600).toFixed(1)} MWh</div></div>
+      <div class="m"><div class="k">蒸汽产量</div><div class="v">${Math.round(state.steam)} t/h</div></div>
+      <div class="m"><div class="k">中子通量</div><div class="v">${(state.flux*100).toFixed(0)}%</div></div>
+      <div class="m"><div class="k">燃料剩余</div><div class="v">${state.fuel.toFixed(1)}%</div></div>`;
+  }
+
+  function renderStatus(){
+    const rs=riskState();
+    const map={ok:['ok','正常运行'], warn:['warn','警告 · 温度偏高'], danger:['danger','危险 · 接近熔毁']};
+    const [cls,txt]=map[rs.level];
+    document.getElementById('sbSpeed').textContent = state.speed===0?'暂停':state.speed+'x';
+    document.getElementById('sbTime').textContent = fmt(state.simTime);
+    const sb=document.getElementById('sbState');
+    sb.className='state '+cls; sb.textContent=txt;
+    document.getElementById('sbSafety').textContent = safetyText();
+  }
+
+  // ---------- controls ----------
+  document.getElementById('runBtn').onclick=function(){
+    state.running=!state.running;
+    this.textContent = state.running?'⏸ 暂停':'▶ 运行';
+    this.classList.toggle('primary', !state.running);
+    this.classList.toggle('danger', state.running);
+    renderStatus();
+  };
+  document.querySelectorAll('.speed').forEach(b=>{
+    b.onclick=()=>{
+      document.querySelectorAll('.speed').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      state.speed=+b.dataset.speed;
+      renderStatus();
+    };
+  });
+
+  // ---------- init ----------
+  buildGrid();
+  renderPalette();
+  renderPanel();
+  drawChart();
+  renderMetrics();
+  renderStatus();
+  setInterval(tick, 120);
+})();
+</script>
+</body>
+</html>

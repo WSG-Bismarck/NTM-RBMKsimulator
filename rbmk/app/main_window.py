@@ -1,0 +1,499 @@
+"""主窗口：装配 6 区域、运行循环、文件操作。"""
+from __future__ import annotations
+
+import tkinter as tk
+from tkinter import filedialog, messagebox
+
+from rbmk.app import theme
+from rbmk.app.chart_panel import ChartPanel
+from rbmk.app.grid_editor import GridEditor
+from rbmk.model import save_load
+from rbmk.model.components import (
+    COMPONENT_INFO,
+    CONTROL_GROUP_COLORS,
+    CONTROL_GROUP_NAMES,
+    FUELS,
+    ComponentType,
+    ControlGroup,
+)
+from rbmk.model.reactor import CONTROL_TYPES, FUEL_TYPES, ReactorModel
+from rbmk.sim.engine import SimulationEngine
+from rbmk.sim.risk import assess, format_duration
+
+SPEEDS = [(0, "⏸"), (1, "1x"), (10, "10x"), (100, "100x"), (1000, "1000x")]
+TOOLS = [("select", "选择"), ("erase", "擦除")]
+
+
+def _btn(parent, text, cmd, kind="normal"):
+    bg = theme.ACCENT if kind == "primary" else (theme.DANGER if kind == "danger" else theme.SURFACE2)
+    fg = "#16120a" if kind == "primary" else ("#ffffff" if kind == "danger" else theme.INK)
+    return tk.Button(parent, text=text, command=cmd, bg=bg, fg=fg,
+                     activebackground=theme.BORDER, activeforeground=theme.INK,
+                     relief="flat", bd=0, padx=10, pady=4, font=theme.FONT, cursor="hand2")
+
+
+class MainWindow:
+    def __init__(self, root: tk.Tk):
+        self.root = root
+        root.title("RBMK 反应堆模拟器 — HBM 核科技 1.7.10")
+        root.geometry("1280x840")
+        root.configure(bg=theme.BG)
+        root.minsize(1000, 700)
+
+        self.model = ReactorModel(15, 15)
+        self.engine = SimulationEngine(self.model)
+        self.running = False
+        self.speed = 1000
+        self.selected_tool = "fuel"
+        self.default_fuel = "rbmk_fuel_heu235"
+        self.selected_cell: tuple[int, int] | None = None
+        self.tab = "prop"
+
+        self._build()
+        self._refresh_all()
+        self._tick()
+
+    # ---------------- UI 构建 ----------------
+    def _build(self):
+        self._build_toolbar()
+        self._build_statusbar()
+
+        bottom = tk.Frame(self.root, bg=theme.SURFACE, height=210)
+        bottom.pack(side="bottom", fill="x")
+        bottom.pack_propagate(False)
+        self.chart = ChartPanel(bottom, self)
+        self.chart.pack(side="left", fill="both", expand=True)
+        self.metrics = tk.Frame(bottom, bg=theme.SURFACE, width=320)
+        self.metrics.pack(side="right", fill="y")
+        self.metrics.pack_propagate(False)
+        self._metric_labels = {}
+        for i, (key, title) in enumerate([
+            ("temp", "堆芯温度"), ("power", "瞬时功率"), ("energy", "累计发电"),
+            ("steam", "蒸汽产量"), ("flux", "中子通量"), ("fuel", "燃料剩余"),
+        ]):
+            box = tk.Frame(self.metrics, bg=theme.SURFACE2, bd=0)
+            box.grid(row=i // 2, column=i % 2, sticky="nsew", padx=4, pady=4)
+            tk.Label(box, text=title, bg=theme.SURFACE2, fg=theme.MUTED,
+                     font=theme.FONT_SMALL, anchor="w").pack(fill="x", padx=8, pady=(6, 0))
+            val = tk.Label(box, text="—", bg=theme.SURFACE2, fg=theme.INK,
+                           font=theme.FONT_BOLD, anchor="w")
+            val.pack(fill="x", padx=8, pady=(0, 6))
+            self._metric_labels[key] = val
+        self.metrics.grid_columnconfigure(0, weight=1)
+        self.metrics.grid_columnconfigure(1, weight=1)
+
+        body = tk.Frame(self.root, bg=theme.BG)
+        body.pack(fill="both", expand=True)
+        self._build_palette(body)
+        self._build_inspector(body)
+        self.grid_editor = GridEditor(body, self)
+        self.grid_editor.pack(side="left", fill="both", expand=True)
+
+    def _build_toolbar(self):
+        bar = tk.Frame(self.root, bg=theme.SURFACE, height=48)
+        bar.pack(side="top", fill="x")
+        bar.pack_propagate(False)
+        for text, cmd in [("新建", self.new_model), ("打开", self.open_file),
+                          ("保存", self.save_file), ("导出分享", self.export_file)]:
+            _btn(bar, text, cmd).pack(side="left", padx=(8 if text == "新建" else 2, 0), pady=7)
+        tk.Frame(bar, bg=theme.BORDER, width=1).pack(side="left", fill="y", padx=8)
+        self.run_btn = _btn(bar, "▶ 运行", self.toggle_run, "primary")
+        self.run_btn.pack(side="left", pady=7)
+        self.speed_btns = {}
+        grp = tk.Frame(bar, bg=theme.SURFACE)
+        grp.pack(side="right", padx=10)
+        tk.Label(grp, text="模拟速度", bg=theme.SURFACE, fg=theme.MUTED,
+                 font=theme.FONT_SMALL).pack(side="left", padx=(0, 6))
+        for s, label in SPEEDS:
+            b = tk.Button(grp, text=label, command=lambda v=s: self.set_speed(v),
+                          bg=theme.SURFACE2, fg=theme.MUTED, relief="flat", bd=0,
+                          padx=8, pady=4, font=theme.FONT_SMALL, cursor="hand2")
+            b.pack(side="left", padx=2)
+            self.speed_btns[s] = b
+
+    def _build_palette(self, parent):
+        left = tk.Frame(parent, bg=theme.SURFACE, width=170)
+        left.pack(side="left", fill="y")
+        left.pack_propagate(False)
+        tk.Label(left, text="组件", bg=theme.SURFACE, fg=theme.MUTED,
+                 font=theme.FONT_SMALL, anchor="w").pack(fill="x", padx=10, pady=(10, 4))
+        self._palette_items = {}
+        for comp in ComponentType:
+            name, color = COMPONENT_INFO[comp]
+            row = tk.Frame(left, bg=theme.SURFACE, cursor="hand2")
+            row.pack(fill="x", padx=6, pady=1)
+            sw = tk.Frame(row, bg=color, width=14, height=14)
+            sw.pack(side="left", padx=(4, 8))
+            sw.pack_propagate(False)
+            lab = tk.Label(row, text=name, bg=theme.SURFACE, fg=theme.INK,
+                           font=theme.FONT_SMALL, anchor="w")
+            lab.pack(side="left", fill="x")
+            for w in (row, sw, lab):
+                w.bind("<Button-1>", lambda e, c=comp: self.select_tool(c.value))
+            self._palette_items[comp.value] = row
+        tk.Label(left, text="工具", bg=theme.SURFACE, fg=theme.MUTED,
+                 font=theme.FONT_SMALL, anchor="w").pack(fill="x", padx=10, pady=(10, 4))
+        self._tool_items = {}
+        for key, name in TOOLS:
+            row = tk.Frame(left, bg=theme.SURFACE, cursor="hand2")
+            row.pack(fill="x", padx=6, pady=1)
+            lab = tk.Label(row, text=name, bg=theme.SURFACE, fg=theme.INK,
+                           font=theme.FONT_SMALL, anchor="w")
+            lab.pack(side="left", fill="x", padx=10, pady=4)
+            for w in (row, lab):
+                w.bind("<Button-1>", lambda e, k=key: self.select_tool(k))
+            self._tool_items[key] = row
+
+    def _build_inspector(self, parent):
+        right = tk.Frame(parent, bg=theme.SURFACE, width=300)
+        right.pack(side="right", fill="y")
+        right.pack_propagate(False)
+        tabs = tk.Frame(right, bg=theme.SURFACE)
+        tabs.pack(fill="x")
+        self._tab_btns = {}
+        for key, name in [("prop", "选中属性"), ("overview", "总览"),
+                          ("control", "模拟控制"), ("risk", "风险预警")]:
+            b = tk.Button(tabs, text=name, command=lambda k=key: self.set_tab(k),
+                          bg=theme.SURFACE, fg=theme.MUTED, relief="flat", bd=0,
+                          padx=4, pady=8, font=theme.FONT_SMALL, cursor="hand2")
+            b.pack(side="left", expand=True, fill="x")
+            self._tab_btns[key] = b
+        self.panel = tk.Frame(right, bg=theme.SURFACE)
+        self.panel.pack(fill="both", expand=True, padx=10, pady=8)
+
+    def _build_statusbar(self):
+        bar = tk.Frame(self.root, bg=theme.SURFACE, height=28)
+        bar.pack(side="bottom", fill="x")
+        bar.pack_propagate(False)
+        self.sb_speed = tk.Label(bar, text="速度 1000x", bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL)
+        self.sb_speed.pack(side="left", padx=10)
+        self.sb_time = tk.Label(bar, text="已运行 00:00:00", bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL)
+        self.sb_time.pack(side="left", padx=10)
+        self.sb_state = tk.Label(bar, text="正常运行", bg=theme.SURFACE, fg=theme.OK, font=theme.FONT_SMALL)
+        self.sb_state.pack(side="left", padx=10)
+        self.sb_safety = tk.Label(bar, text="预计安全运行时长 稳定（无熔毁风险）",
+                                  bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL)
+        self.sb_safety.pack(side="right", padx=10)
+
+    # ---------------- 交互 ----------------
+    def select_tool(self, key: str):
+        self.selected_tool = key
+        self._paint_palette()
+        if key != "select":
+            self.selected_cell = None
+            self.grid_editor.selected = None
+        self.grid_editor.redraw()
+        self.render_panel()
+
+    def _paint_palette(self):
+        for key, row in self._palette_items.items():
+            row.configure(bg=theme.SURFACE2 if key == self.selected_tool else theme.SURFACE)
+        for key, row in self._tool_items.items():
+            row.configure(bg=theme.SURFACE2 if key == self.selected_tool else theme.SURFACE)
+
+    def on_select(self, rc):
+        self.selected_cell = rc
+        self.tab = "prop"
+        self._sync_tab_buttons()
+        self.render_panel()
+
+    def on_model_changed(self):
+        self.engine.state.melt_temp = self.engine._min_melting()
+        self.render_panel()
+
+    def set_tab(self, key):
+        self.tab = key
+        self._sync_tab_buttons()
+        self.render_panel()
+
+    def _sync_tab_buttons(self):
+        for key, b in self._tab_btns.items():
+            b.configure(fg=theme.INK if key == self.tab else theme.MUTED)
+
+    def set_speed(self, s):
+        self.speed = s
+        for k, b in self.speed_btns.items():
+            b.configure(bg=theme.ACCENT if k == s else theme.SURFACE2,
+                        fg="#16120a" if k == s else theme.MUTED)
+
+    def toggle_run(self):
+        self.running = not self.running
+        self.run_btn.configure(text="⏸ 暂停" if self.running else "▶ 运行",
+                               bg=theme.DANGER if self.running else theme.ACCENT,
+                               fg="#ffffff" if self.running else "#16120a")
+
+    # ---------------- 循环 ----------------
+    def _tick(self):
+        if self.running and self.speed > 0 and not self.engine.state.melted:
+            self.engine.advance(0.1 * self.speed)
+            self.chart.push(self.engine.state)
+            self.grid_editor.redraw()
+        self._refresh_state()
+        if self.tab == "risk":
+            self.render_panel()
+        self.root.after(100, self._tick)
+
+    def _refresh_state(self):
+        s = self.engine.state
+        self.sb_speed.configure(text=f"速度 {self.speed}x" if self.speed else "速度 暂停")
+        self.sb_time.configure(text="已运行 " + _fmt(s.time))
+        level_color = {"normal": theme.OK, "warning": theme.ACCENT,
+                       "danger": theme.DANGER, "meltdown": theme.DANGER}[s.status]
+        level_text = {"normal": "正常运行", "warning": "警告 · 温度偏高",
+                      "danger": "危险 · 接近熔毁", "meltdown": "已熔毁"}[s.status]
+        self.sb_state.configure(text=level_text, fg=level_color)
+        r = assess(self.engine)
+        self.sb_safety.configure(text="预计安全运行时长 " + format_duration(r.time_to_meltdown))
+        self._metric_labels["temp"].configure(text=f"{s.temperature:.0f} °C")
+        self._metric_labels["power"].configure(text=f"{s.power:.0f} MW")
+        self._metric_labels["energy"].configure(text=f"{s.total_energy:.2f} MWh")
+        self._metric_labels["steam"].configure(text=f"{s.steam:.0f} t/h")
+        self._metric_labels["flux"].configure(text=f"{s.flux:.2f}")
+        self._metric_labels["fuel"].configure(text=f"{s.fuel_remaining:.1f}%")
+
+    def _refresh_all(self):
+        self._paint_palette()
+        self.set_speed(self.speed)
+        self._sync_tab_buttons()
+        self.render_panel()
+
+    # ---------------- 面板 ----------------
+    def render_panel(self):
+        for w in self.panel.winfo_children():
+            w.destroy()
+        if self.tab == "prop":
+            self._render_prop()
+        elif self.tab == "overview":
+            self._render_overview()
+        elif self.tab == "control":
+            self._render_control()
+        else:
+            self._render_risk()
+
+    def _render_prop(self):
+        p = self.panel
+        if not self.selected_cell or self.model.cell_at(*self.selected_cell) is None:
+            tk.Label(p, text="未选中任何柱子。\n点击网格里的柱子查看属性。",
+                     bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL,
+                     justify="left", anchor="w").pack(fill="x", pady=10)
+            return
+        r, c = self.selected_cell
+        cell = self.model.cell_at(r, c)
+        name, color = COMPONENT_INFO[cell.comp]
+        tk.Label(p, text=f"第 {r+1} 行 · 第 {c+1} 列", bg=theme.SURFACE, fg=theme.MUTED,
+                 font=theme.FONT_SMALL, anchor="w").pack(fill="x")
+        row = tk.Frame(p, bg=theme.SURFACE)
+        row.pack(fill="x", pady=(4, 10))
+        tk.Frame(row, bg=color, width=12, height=12).pack(side="left", padx=(0, 6))
+        tk.Label(row, text=name, bg=theme.SURFACE, fg=theme.INK, font=theme.FONT_BOLD).pack(side="left")
+
+        if cell.comp in FUEL_TYPES:
+            tk.Label(p, text="燃料类型", bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL,
+                     anchor="w").pack(fill="x", pady=(4, 2))
+            var = tk.StringVar(value=FUELS[cell.fuel].name_cn if cell.fuel else "空燃料棒")
+            om = tk.OptionMenu(p, var, *[f.name_cn for f in FUELS.values()],
+                               command=lambda v: self._set_fuel(cell, v))
+            om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
+                         highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
+            om.pack(fill="x")
+            tk.Label(p, text=f"燃耗 {cell.burnup*100:.1f}%   氙毒 {cell.xenon*100:.1f}%",
+                     bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL,
+                     anchor="w").pack(fill="x", pady=(8, 0))
+        elif cell.comp in CONTROL_TYPES:
+            tk.Label(p, text="控制组", bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL,
+                     anchor="w").pack(fill="x", pady=(4, 2))
+            gvar = tk.StringVar(value=CONTROL_GROUP_NAMES[cell.group])
+            om = tk.OptionMenu(p, gvar, *[CONTROL_GROUP_NAMES[g] for g in ControlGroup],
+                               command=lambda v: self._set_group(cell, v))
+            om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
+                         highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
+            om.pack(fill="x")
+            tk.Label(p, text=f"单根插入深度 {self.model.effective_insertion(cell):.0f}%（拖动覆盖）",
+                     bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL,
+                     anchor="w").pack(fill="x", pady=(8, 2))
+            sc = tk.Scale(p, from_=0, to=100, orient="horizontal", showvalue=False,
+                          bg=theme.SURFACE, fg=theme.INK, troughcolor=theme.BORDER,
+                          highlightthickness=0, command=lambda v: self._set_single(cell, v))
+            sc.set(self.model.effective_insertion(cell))
+            sc.pack(fill="x")
+        else:
+            tk.Label(p, text="该组件参与中子/热传递（模型说明见规格）。",
+                     bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL,
+                     justify="left", anchor="w").pack(fill="x", pady=8)
+
+    def _render_overview(self):
+        p = self.panel
+        counts = self.model.counts()
+        tk.Label(p, text=f"网格 {self.model.cols}×{self.model.rows}", bg=theme.SURFACE,
+                 fg=theme.MUTED, font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(0, 6))
+        grid = tk.Frame(p, bg=theme.SURFACE)
+        grid.pack(fill="x")
+        items = [(comp, n) for comp, n in counts.items() if n > 0]
+        for i, (comp, n) in enumerate(items):
+            name, color = COMPONENT_INFO[comp]
+            box = tk.Frame(grid, bg=theme.SURFACE2)
+            box.grid(row=i // 2, column=i % 2, sticky="nsew", padx=3, pady=3)
+            tk.Frame(box, bg=color, width=8, height=8).pack(side="left", padx=(6, 4))
+            tk.Label(box, text=name, bg=theme.SURFACE2, fg=theme.MUTED,
+                     font=theme.FONT_SMALL).pack(side="left")
+            tk.Label(box, text=str(n), bg=theme.SURFACE2, fg=theme.INK,
+                     font=theme.FONT_BOLD).pack(side="right", padx=6)
+        grid.grid_columnconfigure(0, weight=1)
+        grid.grid_columnconfigure(1, weight=1)
+        tk.Label(p, text=f"燃料棒 {self.model.fuel_count()} 根", bg=theme.SURFACE,
+                 fg=theme.INK, font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(10, 0))
+
+    def _render_control(self):
+        p = self.panel
+        self._lbl_global = tk.Label(p, text=f"全局插入深度 {self.model.global_insertion:.0f}%",
+                 bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL, anchor="w")
+        self._lbl_global.pack(fill="x")
+        sc = tk.Scale(p, from_=0, to=100, orient="horizontal", showvalue=False,
+                      bg=theme.SURFACE, fg=theme.INK, troughcolor=theme.BORDER,
+                      highlightthickness=0, command=self._set_global)
+        sc.set(self.model.global_insertion)
+        sc.pack(fill="x", pady=(0, 8))
+        self._lbl_coolant = tk.Label(p, text=f"冷却水流量 {self.model.coolant_flow:.0f}%",
+                 bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL, anchor="w")
+        self._lbl_coolant.pack(fill="x")
+        sc2 = tk.Scale(p, from_=0, to=100, orient="horizontal", showvalue=False,
+                       bg=theme.SURFACE, fg=theme.INK, troughcolor=theme.BORDER,
+                       highlightthickness=0, command=self._set_coolant)
+        sc2.set(self.model.coolant_flow)
+        sc2.pack(fill="x", pady=(0, 10))
+        tk.Label(p, text="分组插入深度（拖动即覆盖该组）", bg=theme.SURFACE,
+                 fg=theme.MUTED, font=theme.FONT_SMALL, anchor="w").pack(fill="x")
+        for g in ControlGroup:
+            row = tk.Frame(p, bg=theme.SURFACE)
+            row.pack(fill="x", pady=1)
+            tk.Frame(row, bg=CONTROL_GROUP_COLORS[g], width=10, height=10).pack(side="left")
+            tk.Label(row, text=CONTROL_GROUP_NAMES[g], bg=theme.SURFACE, fg=theme.INK,
+                     font=theme.FONT_SMALL).pack(side="left", padx=6)
+            cur = self.model.group_insertion.get(g.value)
+            scg = tk.Scale(row, from_=0, to=100, orient="horizontal", showvalue=False,
+                           bg=theme.SURFACE, fg=theme.INK, troughcolor=theme.BORDER,
+                           highlightthickness=0, command=lambda v, gg=g: self._set_group_val(gg, v))
+            scg.set(cur if cur is not None else self.model.global_insertion)
+            scg.pack(side="left", fill="x", expand=True)
+        _btn(p, "重置分组覆盖", self._reset_groups).pack(fill="x", pady=(8, 0))
+
+    def _render_risk(self):
+        p = self.panel
+        s = self.engine.state
+        r = assess(self.engine)
+        colors = {"normal": theme.OK, "warning": theme.ACCENT,
+                  "danger": theme.DANGER, "meltdown": theme.DANGER}
+        texts = {"normal": "正常", "warning": "警告", "danger": "危险", "meltdown": "熔毁"}
+        tk.Label(p, text=texts[r.level], bg=theme.SURFACE, fg=colors[r.level],
+                 font=theme.FONT_TITLE, anchor="w").pack(fill="x", pady=(0, 4))
+        tk.Label(p, text=r.message, bg=theme.SURFACE, fg=theme.MUTED,
+                 font=theme.FONT_SMALL, wraplength=260, justify="left", anchor="w").pack(fill="x")
+        for label, val in [
+            ("堆芯温度", f"{s.temperature:.0f} °C"),
+            ("燃料熔点", f"{r.melt_temp:.0f} °C"),
+            ("温度占比", f"{r.ratio*100:.0f}%"),
+            ("预计安全运行时长", format_duration(r.time_to_meltdown)),
+        ]:
+            row = tk.Frame(p, bg=theme.SURFACE)
+            row.pack(fill="x", pady=5)
+            tk.Label(row, text=label, bg=theme.SURFACE, fg=theme.MUTED,
+                     font=theme.FONT_SMALL).pack(side="left")
+            tk.Label(row, text=val, bg=theme.SURFACE, fg=theme.INK,
+                     font=theme.FONT_BOLD).pack(side="right")
+
+    # ---------------- 设置回调 ----------------
+    def _set_fuel(self, cell, name):
+        for ft in FUELS.values():
+            if ft.name_cn == name:
+                cell.fuel = ft.key
+                break
+        self.grid_editor.redraw()
+
+    def _set_group(self, cell, name):
+        for g in ControlGroup:
+            if CONTROL_GROUP_NAMES[g] == name:
+                cell.group = g
+                break
+        self.grid_editor.redraw()
+
+    def _set_single(self, cell, v):
+        cell.insertion = float(v)
+
+    def _set_global(self, v):
+        self.model.global_insertion = float(v)
+        if getattr(self, "_lbl_global", None) is not None:
+            self._lbl_global.configure(text=f"全局插入深度 {self.model.global_insertion:.0f}%")
+
+    def _set_coolant(self, v):
+        self.model.coolant_flow = float(v)
+        if getattr(self, "_lbl_coolant", None) is not None:
+            self._lbl_coolant.configure(text=f"冷却水流量 {self.model.coolant_flow:.0f}%")
+
+    def _set_group_val(self, group, v):
+        self.model.group_insertion[group.value] = float(v)
+
+    def _reset_groups(self):
+        self.model.group_insertion.clear()
+        self.render_panel()
+
+    # ---------------- 文件 ----------------
+    def new_model(self):
+        self.model = ReactorModel(15, 15)
+        self.engine = SimulationEngine(self.model)
+        self.chart.reset()
+        self.selected_cell = None
+        self.grid_editor.selected = None
+        self.grid_editor.redraw()
+        self._refresh_all()
+
+    def open_file(self):
+        path = filedialog.askopenfilename(
+            title="打开设计", filetypes=[("RBMK 设计", "*.json"), ("所有文件", "*.*")])
+        if not path:
+            return
+        try:
+            self.model = save_load.load(path)
+        except Exception as e:
+            messagebox.showerror("打开失败", str(e))
+            return
+        self.engine = SimulationEngine(self.model)
+        self.chart.reset()
+        self.selected_cell = None
+        self.grid_editor.selected = None
+        self.grid_editor.redraw()
+        self._refresh_all()
+
+    def save_file(self):
+        path = filedialog.asksaveasfilename(
+            title="保存设计", defaultextension=".json",
+            filetypes=[("RBMK 设计", "*.json")])
+        if not path:
+            return
+        try:
+            save_load.save(self.model, path)
+        except Exception as e:
+            messagebox.showerror("保存失败", str(e))
+
+    def export_file(self):
+        path = filedialog.asksaveasfilename(
+            title="导出分享文件", defaultextension=".rbmk.json",
+            filetypes=[("RBMK 分享文件", "*.rbmk.json"), ("JSON", "*.json")])
+        if not path:
+            return
+        try:
+            save_load.export(self.model, path)
+            messagebox.showinfo("导出成功", "已导出，可发给其他玩家用本软件导入。")
+        except Exception as e:
+            messagebox.showerror("导出失败", str(e))
+
+
+def _fmt(seconds: float) -> str:
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = int(seconds % 60)
+    return f"{h:02d}:{m:02d}:{s:02d}"
+
+
+def create_app():
+    root = tk.Tk()
+    return MainWindow(root), root
