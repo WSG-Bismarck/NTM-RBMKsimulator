@@ -341,7 +341,6 @@ class SimulationEngine:
     def _boil_one(self, cell, hpm: float) -> float:
         """单根普通蒸汽管道产汽（TileEntityRBMKBoiler）；模组里在 moveHeat 之前执行。"""
         p = self.p
-        cell.steam_rate = 0.0
         # 供水：水箱余量 + 本 tick 补水（管道），不超过 feed 罐容量
         feed = min(cell.water + p["boiler_water_supply"], p["boiler_feed"])
         st = STEAM_TYPES.get(cell.steam_type, STEAM_TYPES["STEAM"])
@@ -363,7 +362,7 @@ class SimulationEngine:
             used = made * st.factor / 100.0
         cell.water = max(0.0, feed - used)
         cell.steam += made
-        cell.steam_rate = made
+        cell.steam_rate += made
         cell.temp -= used * hpm
         return made
 
@@ -377,7 +376,7 @@ class SimulationEngine:
         if made <= 0.0:
             return 0.0
         cell.steam += made
-        cell.steam_rate = made
+        cell.steam_rate += made
         cell.temp -= made * hpm
         return made
 
@@ -470,7 +469,9 @@ class SimulationEngine:
                 emitted = self._rod_step(cell)
             elif b == Behavior.CONTROL and cell.comp == ComponentType.RBMK_CONTROL_AUTO:
                 self._auto_control_step(cell)
-            elif not reasim and b == Behavior.BOILER:
+            elif b == Behavior.BOILER:
+                # 模组：TileEntityRBMKBoiler 自己的产汽逻辑无条件执行，
+                # 之后 super.func_145845_h() 里再（在 ReaSim 开启时）跑一次 boilWater
                 steam += self._boil_one(cell, hpm)
             elif b == Behavior.HEATER:
                 self._heat_one(cell)

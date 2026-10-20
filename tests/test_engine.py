@@ -957,3 +957,27 @@ def test_cooler_cannot_go_below_ambient():
     e._begin_tick()
     e._heat_tick()
     assert cooler.temp == 20.0
+
+
+def test_reasim_mode_still_runs_steam_pipe_normal_conversion():
+    """ReaSim 模式下蒸汽管道仍然执行自己的产汽逻辑（模组里 TileEntityRBMKBoiler 先跑，
+    再调 super 走 moveHeat + boilWater），两段产量累加。"""
+    m = ReactorModel(3, 3)
+    b = m.place(1, 1, BOIL)
+    m.reasim_boilers = True
+    e = SimulationEngine(m)
+    b.temp = 500.0
+    e._begin_tick()
+    e._heat_tick()
+    # 普通段：(500-100)/0.1 = 4000 mB 水 → 400000 mB 蒸汽 → 柱温降到 100
+    assert abs(b.steam_rate - 400000.0) < 1e-6
+    # 降到 100 后 ReaSim 段不再产汽（<100 直接返回）
+    assert b.water == 6000.0
+    # 关闭 ReaSim 时应完全相同（普通逻辑本来就不受开关影响）
+    m2 = ReactorModel(3, 3)
+    b2 = m2.place(1, 1, BOIL)
+    e2 = SimulationEngine(m2)
+    b2.temp = 500.0
+    e2._begin_tick()
+    e2._heat_tick()
+    assert abs(b2.steam_rate - b.steam_rate) < 1e-9
