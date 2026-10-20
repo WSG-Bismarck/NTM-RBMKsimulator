@@ -142,6 +142,7 @@ class SimulationEngine:
     def _reset(self) -> None:
         for _, _, cell in self.model.iter_cells():
             cell.temp = AMBIENT
+            cell.shown_temp = AMBIENT
             cell.heat = 0.0
             cell.flux = 0.0
             cell.steam = 0.0
@@ -400,6 +401,7 @@ class SimulationEngine:
         steam = 0.0
         for _, _, cell in cells:
             cell.steam_rate = 0.0
+            cell.shown_temp = cell.temp
 
         for r, c, cell in cells:
             b = behavior_of(cell.comp)
@@ -425,6 +427,11 @@ class SimulationEngine:
 
             if reasim:
                 steam += self._boil_one_reasim(cell, hpm)
+
+            # 模组里每根柱在自己的 tick 结束时把 heat 同步给客户端；
+            # 控制台/物品提示显示的就是这个「自己 tick 结束时」的快照，
+            # 而不是全世界 tick 结束后的值（后者还会被后 tick 的邻柱再改一次）。
+            cell.shown_temp = cell.temp
 
         self._steam_tick = steam
 

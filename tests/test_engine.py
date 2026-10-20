@@ -739,3 +739,20 @@ def test_three_column_reflector_heats_up_from_channel():
     assert refl.temp > 120.0       # 单侧扩散时约 98
     assert refl.temp < rod.temp    # 反射板只靠传导，永远低于燃料柱
     assert boil.temp < rod.temp    # 蒸汽管道持续带走热量
+
+
+def test_column_temps_match_game_console_sampling():
+    """游戏里控制台/物品提示显示的是每根柱「自己 tick 结束」时的 heat 快照
+    （TE 在自己的 tick 末尾 networkPackNT 同步），不是全世界 tick 结束后的值。
+    闪光铅 3 柱构型（燃料—蒸汽管道—反射器）实测：241.12 / 110.45 / 134.64。"""
+    m = ReactorModel(5, 5)
+    rod = m.place(2, 1, ROD_MOD, fuel="rbmk_fuel_flashlead")
+    boil = m.place(2, 2, BOIL)
+    refl = m.place(2, 3, REFL)
+    e = SimulationEngine(m)
+    e.advance(200.0)                    # 4000 tick，燃耗约 0.13%
+    assert abs(rod.shown_temp - 241.12) < 0.2
+    assert abs(boil.shown_temp - 110.45) < 0.2
+    assert abs(refl.shown_temp - 134.64) < 0.2
+    # 世界 tick 结束值会被后 tick 的邻柱再改一次，与显示快照必然不同
+    assert abs(rod.temp - rod.shown_temp) > 10.0

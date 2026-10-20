@@ -33,6 +33,7 @@ class Cell:
     flux: float = 0.0
     steam: float = 0.0
     steam_rate: float = 0.0            # 每 tick 产汽量
+    shown_temp: float = 25.0           # 模组该柱自己 tick 结束时的温度快照（控制台显示值）
     steam_type: str = "STEAM"          # 蒸汽类型（STEAM/HOTSTEAM/SUPERHOTSTEAM/ULTRAHOTSTEAM）
     heater_fluid: str = "COOLANT"      # 流体加热器输入流体（默认冷却液）
     heater_rate: float = 0.0           # 每刻加热流体产量（mB/tick）

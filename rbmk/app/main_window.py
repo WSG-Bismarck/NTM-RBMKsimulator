@@ -438,7 +438,7 @@ class MainWindow:
                 if self.model.cell_at(r + dr, c + dc) is not None)
         cooling = 0.1 + (2.5 - 0.1) * ((4 - min(max(n, 0), 4)) / 4.0)
         vals = {
-            "temp": f"{cell.temp:.1f} °C",
+            "temp": f"{cell.shown_temp:.1f} °C",
             "core": f"{cell.core_heat:.1f} °C",
             "hull": f"{cell.hull_heat:.1f} °C",
             "heat": f"{cell.heat:.2f}",
