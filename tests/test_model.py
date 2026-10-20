@@ -97,3 +97,19 @@ def test_out_of_bounds_raises():
     m = ReactorModel(rows=3, cols=3)
     with pytest.raises(IndexError):
         m.place(5, 5, ComponentType.RBMK_ROD, fuel="rbmk_fuel_ueu")
+
+
+def test_fuel_names_match_in_game_lang():
+    """燃料中文名必须与 zh_CN.lang 的标准译名一致。"""
+    from rbmk.model.components import FUELS
+    assert FUELS["rbmk_fuel_heu235"].name_cn == "HEU-235 RBMK反应堆高浓缩度铀-235燃料棒"
+    assert FUELS["rbmk_fuel_ueu"].name_cn == "NU RBMK反应堆未浓缩铀燃料棒"
+    assert FUELS["rbmk_fuel_hep239"].name_cn == "HEP-239 RBMK反应堆高浓缩度钚-239燃料棒"
+    assert FUELS["rbmk_fuel_balefire"].name_cn == "RBMK反应堆野火燃料棒"
+    assert FUELS["rbmk_fuel_po210be"].name_cn == "钋210-铍 RBMK反应堆中子源"
+    # DRX 在语言文件里带 §c / §r 颜色码，显示时必须去掉
+    assert FUELS["rbmk_fuel_drx"].name_cn == "RBMK反应堆F迪伽马粒子燃料棒"
+    for ft in FUELS.values():
+        assert "§" not in ft.name_cn
+        if ft.key != "rbmk_fuel_test":      # 测试燃料在语言文件里没有条目
+            assert "RBMK" in ft.name_cn

@@ -667,3 +667,42 @@ def test_absorber_heat_goes_into_column_temperature():
     e._cast(0, 0, 0, 1, 100.0, 1.0, src)
     assert abs(absb.temp - 25.0) < 1e-9
     assert abs(absb.heat - 5.0) < 1e-9
+
+
+def test_depletion_modifier_matches_jar():
+    """ItemRBMKRod.reactivityModByEnrichment 五种函数的精确值（含耗损后的富集度）。"""
+    import math
+    from rbmk.sim.engine import depletion_modifier as dm
+    for e in (1.0, 0.62, 0.35):
+        assert abs(dm("LINEAR", e) - e) < 1e-12
+        assert abs(dm("STATIC", e) - 1.0) < 1e-12
+        assert abs(dm("BOOSTED_SLOPE", e) - (e + math.sin((e - 1.0) ** 2 * math.pi))) < 1e-12
+        assert abs(dm("RAISING_SLOPE", e) - (e + math.sin(e * math.pi) / 2.0)) < 1e-12
+        assert abs(dm("GENTLE_SLOPE", e) - (e + math.sin(e * math.pi) / 3.0)) < 1e-12
+
+
+def test_gentle_slope_fuel_scales_with_enrichment():
+    """回归：GENTLE_SLOPE 曾被错写成 sin/2（应为 sin/3），耗损后反应性偏高。"""
+    import math
+    from rbmk.model.components import FUELS
+    from rbmk.sim.engine import reactivity_function
+    ft = FUELS["rbmk_fuel_heu235"]        # SQUARE_ROOT + GENTLE_SLOPE, r=50
+    e = 0.5
+    flux = 100.0 * (e + math.sin(e * math.pi) / 3.0)
+    expected = math.sqrt(flux) * ft.reactivity / 10.0
+    assert abs(reactivity_function(ft, 100.0, e) - expected) < 1e-9
+    assert reactivity_function(ft, 100.0, e) < reactivity_function(ft, 100.0, 1.0)
+
+
+def test_raising_slope_fuel_uses_raising_curve_not_static():
+    """回归：RAISING_SLOPE 曾被错写成 STATIC(1.0)，耗损后输出必须随富集度变化。"""
+    import math
+    from rbmk.model.components import FUELS
+    from rbmk.sim.engine import reactivity_function
+    ft = FUELS["rbmk_fuel_ueu"]           # LOG_TEN + RAISING_SLOPE, r=15
+    e = 0.75
+    flux = 100.0 * (e + math.sin(e * math.pi) / 2.0)
+    expected = math.log10(flux + 1.0) * 0.5 * ft.reactivity
+    assert abs(reactivity_function(ft, 100.0, e) - expected) < 1e-9
+    # STATIC 会得到 log10(101)*0.5*15 ≈ 15.03，与正确值不同
+    assert abs(reactivity_function(ft, 100.0, e) - math.log10(101.0) * 0.5 * 15.0) > 1e-6

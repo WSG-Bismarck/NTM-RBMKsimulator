@@ -18,7 +18,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "低浓缩铀"
+    "name": "NU RBMK反应堆未浓缩铀燃料棒"
   },
   "rbmk_fuel_meu": {
     "reactivity": 20.0,
@@ -35,7 +35,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "中浓缩铀"
+    "name": "MEU RBMK中浓缩度铀-235燃料棒"
   },
   "rbmk_fuel_heu233": {
     "reactivity": 27.5,
@@ -52,7 +52,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "高浓缩铀-233"
+    "name": "HEU-233 RBMK反应堆高浓缩度铀-233燃料棒"
   },
   "rbmk_fuel_heu235": {
     "reactivity": 50.0,
@@ -69,7 +69,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "高浓缩铀-235"
+    "name": "HEU-235 RBMK反应堆高浓缩度铀-235燃料棒"
   },
   "rbmk_fuel_uzh": {
     "reactivity": 30.0,
@@ -86,7 +86,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 1000.0,
     "heat_coeff_length": 500.0,
-    "name": "铀锆燃料"
+    "name": "RBMK反应堆铀氢锆燃料棒"
   },
   "rbmk_fuel_thmeu": {
     "reactivity": 20.0,
@@ -103,7 +103,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "钍-中浓缩铀"
+    "name": "ThMEU RBMK反应堆中浓缩度铀-233导向钍燃料棒"
   },
   "rbmk_fuel_lep": {
     "reactivity": 35.0,
@@ -120,7 +120,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "低浓缩钚"
+    "name": "LEP RBMK反应堆低浓缩度钚-239燃料棒"
   },
   "rbmk_fuel_mep": {
     "reactivity": 35.0,
@@ -137,7 +137,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "中浓缩钚"
+    "name": "MEP RBMK反应堆中浓缩度钚-239燃料棒"
   },
   "rbmk_fuel_hep239": {
     "reactivity": 30.0,
@@ -154,7 +154,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "高浓缩钚-239"
+    "name": "HEP-239 RBMK反应堆高浓缩度钚-239燃料棒"
   },
   "rbmk_fuel_hep241": {
     "reactivity": 40.0,
@@ -171,7 +171,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "高浓缩钚-241"
+    "name": "HEP-241 RBMK反应堆高浓缩度钚-241燃料棒"
   },
   "rbmk_fuel_lea": {
     "reactivity": 60.0,
@@ -188,7 +188,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "低浓缩镅"
+    "name": "LEA RBMK反应堆低浓缩度镅-242燃料棒"
   },
   "rbmk_fuel_mea": {
     "reactivity": 35.0,
@@ -205,7 +205,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "中浓缩镅"
+    "name": "MEA RBMK反应堆中浓缩度镅-242燃料棒"
   },
   "rbmk_fuel_hea241": {
     "reactivity": 65.0,
@@ -222,7 +222,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "高浓缩镅-241"
+    "name": "HEA-241 RBMK反应堆高浓缩度镅-241燃料棒"
   },
   "rbmk_fuel_hea242": {
     "reactivity": 45.0,
@@ -239,7 +239,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "高浓缩镅-242"
+    "name": "HEA-242 RBMK反应堆高浓缩度镅-242燃料棒"
   },
   "rbmk_fuel_men": {
     "reactivity": 30.0,
@@ -256,7 +256,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "中浓缩镎"
+    "name": "MEN RBMK反应堆中浓缩度镎-237燃料棒"
   },
   "rbmk_fuel_hen": {
     "reactivity": 40.0,
@@ -273,7 +273,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "高浓缩镎"
+    "name": "HEN RBMK反应堆高浓缩度镎燃料棒"
   },
   "rbmk_fuel_mox": {
     "reactivity": 40.0,
@@ -290,7 +290,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "MOX燃料"
+    "name": "MOX RBMK反应堆燃料棒"
   },
   "rbmk_fuel_les": {
     "reactivity": 50.0,
@@ -307,7 +307,7 @@ FUEL_DATA = {
     "r_type": "SLOW",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "低浓缩锶"
+    "name": "LES RBMK反应堆低浓缩度Sa326燃料棒"
   },
   "rbmk_fuel_mes": {
     "reactivity": 75.0,
@@ -324,7 +324,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "中浓缩锶"
+    "name": "MES RBMK中浓缩度Sa326燃料棒"
   },
   "rbmk_fuel_hes": {
     "reactivity": 90.0,
@@ -341,7 +341,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "高浓缩锶"
+    "name": "HES RBMK反应堆高浓缩度Sa326燃料棒"
   },
   "rbmk_fuel_leaus": {
     "reactivity": 30.0,
@@ -358,7 +358,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "低浓缩镅(澳)"
+    "name": "LEAus RBMK反应堆低浓缩度奥斯燃料棒"
   },
   "rbmk_fuel_heaus": {
     "reactivity": 35.0,
@@ -375,7 +375,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "高浓缩镅(澳)"
+    "name": "HEAus RBMK反应堆高浓缩度奥斯燃料棒"
   },
   "rbmk_fuel_po210be": {
     "reactivity": 0.0,
@@ -392,7 +392,7 @@ FUEL_DATA = {
     "r_type": "SLOW",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "钋-210/铍"
+    "name": "钋210-铍 RBMK反应堆中子源"
   },
   "rbmk_fuel_ra226be": {
     "reactivity": 0.0,
@@ -409,7 +409,7 @@ FUEL_DATA = {
     "r_type": "SLOW",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "镭-226/铍"
+    "name": "镭226-铍 RBMK反应堆中子源"
   },
   "rbmk_fuel_pu238be": {
     "reactivity": 40.0,
@@ -426,7 +426,7 @@ FUEL_DATA = {
     "r_type": "SLOW",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "钚-238/铍"
+    "name": "钚238-铍 RBMK反应堆中子源"
   },
   "rbmk_fuel_balefire_gold": {
     "reactivity": 50.0,
@@ -443,7 +443,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "妖火-金"
+    "name": "RBMK反应堆激活态金-198燃料棒"
   },
   "rbmk_fuel_flashlead": {
     "reactivity": 40.0,
@@ -460,7 +460,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "闪光铅"
+    "name": "RBMK反应堆闪光铅燃料棒"
   },
   "rbmk_fuel_balefire": {
     "reactivity": 100.0,
@@ -477,7 +477,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "妖火燃料"
+    "name": "RBMK反应堆野火燃料棒"
   },
   "rbmk_fuel_zfb_bismuth": {
     "reactivity": 20.0,
@@ -494,7 +494,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "ZFB铋"
+    "name": "ZFB 铋RBMK反应堆燃料棒"
   },
   "rbmk_fuel_zfb_pu241": {
     "reactivity": 20.0,
@@ -511,7 +511,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "ZFB钚-241"
+    "name": "ZFB 钚-241RBMK反应堆燃料棒"
   },
   "rbmk_fuel_zfb_am_mix": {
     "reactivity": 20.0,
@@ -528,7 +528,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "ZFB镅混合"
+    "name": "ZFB 燃料级镅RBMK反应堆燃料棒"
   },
   "rbmk_fuel_drx": {
     "reactivity": 1000.0,
@@ -545,7 +545,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "DRX燃料"
+    "name": "RBMK反应堆F迪伽马粒子燃料棒"
   },
   "rbmk_fuel_test": {
     "reactivity": 100.0,
@@ -562,7 +562,7 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "测试燃料"
+    "name": "测试燃料（THE VOICES）"
   },
   "rbmk_fuel_empty": {
     "reactivity": 0.0,
@@ -579,6 +579,6 @@ FUEL_DATA = {
     "r_type": "FAST",
     "heat_coeff_start": 0.0,
     "heat_coeff_length": 0.0,
-    "name": "空燃料棒"
+    "name": "空 RBMK反应堆燃料棒"
   }
 }

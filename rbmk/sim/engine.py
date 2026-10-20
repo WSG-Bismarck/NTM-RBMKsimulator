@@ -61,16 +61,17 @@ DEFAULT_PARAMS = {
 
 # ---------- 燃料公式（精确还原） ----------
 def depletion_modifier(dep_func: str, enrichment: float) -> float:
+    """ItemRBMKRod.reactivityModByEnrichment（switch case 见 ItemRBMKRod$1 映射表）。"""
     e = enrichment
-    if dep_func == "RAISING_SLOPE":
+    if dep_func == "STATIC":                       # case 2
         return 1.0
-    if dep_func == "BOOSTED_SLOPE":
+    if dep_func == "BOOSTED_SLOPE":                # case 3
         return e + math.sin((e - 1.0) * (e - 1.0) * math.pi)
-    if dep_func == "GENTLE_SLOPE":
+    if dep_func == "RAISING_SLOPE":                # case 4
         return e + math.sin(e * math.pi) / 2.0
-    if dep_func == "STATIC":
+    if dep_func == "GENTLE_SLOPE":                 # case 5
         return e + math.sin(e * math.pi) / 3.0
-    return e  # LINEAR
+    return e  # LINEAR (case 1)
 
 
 def reactivity_function(ft: FuelType, in_flux: float, enrichment: float) -> float:
@@ -182,7 +183,7 @@ class SimulationEngine:
             prog = min(1.0, (cell.core_heat - ft.heat_coeff_start) / ft.heat_coeff_length)
             enrichment *= math.sin((prog * math.pi + math.pi) / 2.0)
 
-        out_flux = reactivity_function(ft, in_flux, enrichment)
+        out_flux = reactivity_function(ft, in_flux, enrichment) * p["reactivity_mod"]
         if ft.yield_ > 0:
             cell.burnup = min(1.0, cell.burnup + in_flux / ft.yield_)
         out_ratio = 0.0 if ft.r_type == NType.SLOW else 1.0

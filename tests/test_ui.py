@@ -1,6 +1,6 @@
 """阶段 2 界面测试：6 区域、组件栏 14 项、4 个标签页、放置/选择、速度/运行。"""
 from rbmk.app.main_window import create_app
-from rbmk.model.components import ComponentType
+from rbmk.model.components import ComponentType, FUELS
 
 
 def _fresh():
@@ -196,7 +196,7 @@ def test_ui_place_self_igniting_rod_starts():
     try:
         win.select_tool(ComponentType.RBMK_ROD.value)
         win.grid_editor._paint((2, 2))
-        win._set_fuel(win.model.cell_at(2, 2), "低浓缩镅")
+        win._set_fuel(win.model.cell_at(2, 2), FUELS["rbmk_fuel_lea"].name_cn)
         win.set_speed(100)
         win.toggle_run()
         win._tick()

@@ -130,6 +130,16 @@
 - **清单类数据 100% 来自 jar**（组件/燃料/分组/参数键）。
 - **燃料逐项数值已精确还原（v2）**：已用 CFR 0.152 反编译 `ModItems`，把 34 种燃料的 `setStats/setHeat/setMeltingPoint/setYield/setDiffusion/setXenon/setHeatCoeff/setNeutronTypes` 实参逐条提取，写入 `rbmk/model/fuel_data.py`（由 `tools/parse_fuels.py` 生成）。
 - **反应性/燃烧/氙毒公式已精确还原**：`reactivity_function` 逐函数实现 `ItemRBMKRod.reactivityFunc` 的 9 种燃烧函数（PASSIVE/LOG_TEN/PLATEU/ARCH/SIGMOID/SQUARE_ROOT/LINEAR/QUADRATIC/EXPERIMENTAL）；氙毒按 `xenonGenFunc/xenonBurnFunc` 实现。
+- **富集度衰减函数 `reactivityModByEnrichment`**（`ItemRBMKRod$1` 的 switch 映射）：
+  | 函数 | 公式 |
+  |---|---|
+  | LINEAR | `e` |
+  | STATIC | `1.0` |
+  | BOOSTED_SLOPE | `e + sin((e−1)²·π)` |
+  | RAISING_SLOPE | `e + sin(e·π)/2` |
+  | GENTLE_SLOPE | `e + sin(e·π)/3` |
+  其中 `e = yield / maxYield`，且已乘热系数 `mult`。
+- **燃料中文名**取自 `assets/hbm/lang/zh_CN.lang` 的 `item.rbmk_fuel_*.name`（去掉 § 颜色码）；物品 `rbmk_fuel_hep239` 的语言键为 `rbmk_fuel_hep`；`rbmk_fuel_test` 在语言文件中无条目，显示为「测试燃料（THE VOICES）」。
 - **v3 已对齐 RBMKDials 默认值**：`columnHeatFlow=0.2`、`passiveCooling=2.5`、`passiveCoolingInner=0.1`、`heatProvision=0.2`、`diffusionMod=1.0`、慢化/吸收/反射效率均为 `1.0`、`absorberHeatConversion=0.05`、`boilerHeatConsumption=0.1`、`fluxRange=5`、`columnHeight=4`。仍为模型层的只剩「锅炉供水能力」与「涡轮效率」两个聚合参数。
 - 中文显示名部分仍为按命名推断，可从模组语言文件对齐。
 
