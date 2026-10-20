@@ -630,3 +630,39 @@ def test_boiler_full_tank_cools_to_steam_threshold():
     b.water = 10000.0
     e._heat_tick()
     assert abs(b.temp - 100.0) < 1e-9
+
+
+# ---------- 反射体 / 吸收体 ----------
+def test_reflector_does_not_generate_heat_from_flux():
+    """模组反射体（TileEntityRBMKReflector）没有中子吸热逻辑，只把流反射回源棒。"""
+    m = ReactorModel(1, 5)
+    src = m.place(0, 0, ROD, fuel=HEU)
+    refl = m.place(0, 1, REFL)
+    e = SimulationEngine(m)
+    e._cast(0, 0, 0, 1, 100.0, 1.0, src)
+    assert refl.temp == 20.0          # 中子 tick 不改变反射体柱温
+    assert refl.heat == 0.0           # 没有直接吸热
+    assert src.flux_q == 100.0        # 全额反射回源棒
+
+
+def test_reflector_heats_only_by_conduction():
+    m = ReactorModel(5, 5)
+    rod = m.place(2, 2, ROD, fuel=HEU)
+    refl = m.place(2, 3, REFL)
+    e = SimulationEngine(m)
+    rod.temp = 1000.0
+    refl.temp = 20.0
+    e._heat_tick()
+    assert refl.temp > 20.0           # 通过四邻扩散升温
+    assert refl.heat == 0.0
+
+
+def test_absorber_heat_goes_into_column_temperature():
+    """模组：absorber.heat += absorberHeatConversion(0.05) * flux，加在柱温上。"""
+    m = ReactorModel(1, 5)
+    src = m.place(0, 0, ROD, fuel=HEU)
+    absb = m.place(0, 1, ABS)
+    e = SimulationEngine(m)
+    e._cast(0, 0, 0, 1, 100.0, 1.0, src)
+    assert abs(absb.temp - 25.0) < 1e-9
+    assert abs(absb.heat - 5.0) < 1e-9

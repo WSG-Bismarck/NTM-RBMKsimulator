@@ -225,7 +225,10 @@ class SimulationEngine:
                 continue
 
             if b == Behavior.ABSORBER:
-                cell.heat += p["absorber_heat_conversion"] * flux
+                # 模组：absorber.heat += absorberHeatConversion * flux，直接加在柱温上
+                gained = p["absorber_heat_conversion"] * flux
+                cell.temp += gained
+                cell.heat = gained
                 if p["absorber_efficiency"] == 1.0:
                     return
                 flux *= p["absorber_efficiency"]
