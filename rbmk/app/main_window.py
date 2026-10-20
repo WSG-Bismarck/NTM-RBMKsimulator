@@ -271,11 +271,14 @@ class MainWindow:
         if self.console_window is not None and self.console_window.winfo_exists():
             self.console_window.deiconify()
             self.console_window.lift()
+            self.console_window.focus_force()
             self.console_window.refresh()
             return
         from rbmk.app.console_view import ConsoleWindow
 
         self.console_window = ConsoleWindow(self)
+        self.console_window.lift()
+        self.console_window.focus_force()
 
     def toggle_boiler_mode(self):
         """切换普通锅炉 / ReaSim 锅炉模式。"""

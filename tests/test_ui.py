@@ -713,3 +713,46 @@ def test_console_view_reproduces_mod_gui_layout():
         cw.destroy()
     finally:
         root.destroy()
+
+
+def test_main_grid_draws_console_overlays():
+    """主网格直接显示控制台叠加层：热量红线、燃料三色条、控制棒分组色。"""
+    from rbmk.model.components import ComponentType, ControlGroup
+    win, root = _fresh()
+    try:
+        win.model.place(2, 2, ComponentType.RBMK_ROD)
+        c = win.model.cell_at(2, 2)
+        c.fuel = "rbmk_fuel_flashlead"
+        c.shown_temp = 770.0     # 热量条 5/10
+        c.hull_heat = 300.0
+        c.burnup = 0.0
+        c.xenon = 40.0
+        win.model.place(2, 3, ComponentType.RBMK_CONTROL)
+        win.model.cell_at(2, 3).group = ControlGroup.BLUE
+        win.grid_editor.redraw()
+        cv = win.grid_editor.canvas
+        fills = {cv.itemcget(i, "fill") for i in cv.find_all() if cv.type(i) == "rectangle"}
+        assert "#a90000" in fills      # 热量红线（169,0,0）
+        assert "#8b00c8" in fills      # 氙毒紫（139,0,200）
+        assert "#3bc800" in fills      # 浓缩度绿（59,200,0）
+        assert "#0026ff" in fills      # 控制棒 BLUE 分组色
+    finally:
+        root.destroy()
+
+
+def test_open_console_creates_and_reuses_window():
+    """工具栏「控制台」打开窗口；再次点击复用同一个窗口。"""
+    win, root = _fresh()
+    try:
+        assert win.console_window is None
+        win.open_console()
+        root.update()
+        cw = win.console_window
+        assert cw is not None and cw.winfo_exists()
+        win.open_console()
+        root.update()
+        assert win.console_window is cw
+        cw.destroy()
+        win.console_window = None
+    finally:
+        root.destroy()

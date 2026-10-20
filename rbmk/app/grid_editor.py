@@ -3,6 +3,7 @@ import tkinter as tk
 
 from rbmk.app import theme
 from rbmk.app.icons import get_icon
+from rbmk.app.console_view import column_overlays
 from rbmk.model.components import (
     COMPONENT_INFO,
     COMPONENT_SHORT,
@@ -144,6 +145,12 @@ class GridEditor(tk.Frame):
                         cv.create_text(x + cs / 2, y + cs / 2 + 1,
                                        text=COMPONENT_SHORT[cell.comp],
                                        fill="#0b0e11", font=(theme.FAMILY, max(6, cs // 4)))
+                    # 控制台叠加层：热量红线 / 燃料三色条 / 水条与蒸汽类型点 / 分组色与插入条
+                    sc = cs / 10.0
+                    for ox, oy, ow, oh, color in column_overlays(cell, self.app.model):
+                        cv.create_rectangle(x + ox * sc, y + oy * sc,
+                                            x + (ox + ow) * sc - 1, y + (oy + oh) * sc - 1,
+                                            fill="#%02x%02x%02x" % color, outline="", width=0)
         if self.selected:
             sr, sc = self.selected
             x = ox + 2 + sc * (cs + 2)

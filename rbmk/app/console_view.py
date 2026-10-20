@@ -80,6 +80,63 @@ def _asset_path(name: str) -> str:
     return os.path.join(base, name)
 
 
+def column_overlays(cell, model, max_heat: float = MAX_HEAT):
+    """返回该柱在 10×10 单元格内的叠加矩形：[(x, y, w, h, rgb), ...]（game 像素坐标）。
+
+    与 GUIRBMKConsole.drawScreen 的绘制顺序/坐标一致，供控制台窗口和主网格共用。
+    """
+    out: list[tuple[float, float, float, float, tuple[int, int, int]]] = []
+    kind = KIND_OF.get(cell.comp, "BLANK")
+
+    heat = cell.shown_temp if cell.shown_temp else cell.temp
+    hh = int(min(max(math.ceil((heat - 20.0) * 10.0 / max_heat), 0), 10))
+    if hh > 0:
+        out.append((0, 10 - hh, 1, hh, C_HEAT))
+        out.append((9, 10 - hh, 1, hh, C_HEAT))
+
+    if kind in ("FUEL", "FUEL_SIM"):
+        ft = cell.fuel_type
+        if ft is not None:
+            melt = float(getattr(ft, "melting_point", 0.0) or 0.0)
+            fh = 0 if melt <= 0 else int(min(max(math.ceil((cell.hull_heat - 20.0) * 8.0 / melt), 0), 8))
+            fe = int(min(max(math.ceil((1.0 - cell.burnup) * 8.0), 0), 8))
+            fx = int(min(max(math.ceil(cell.xenon * 8.0 / 100.0), 0), 8))
+            out.append((1, 9 - fh, 2, fh, C_SKIN))
+            out.append((4, 9 - fe, 2, fe, C_ENRICH))
+            out.append((7, 9 - fx, 2, fx, C_XENON))
+
+    elif kind == "BOILER":
+        fw = int(min(max(math.ceil(cell.water * 8.0 / BOILER_WATER_MAX), 0), 8))
+        out.append((1, 9 - fw, 3, fw, C_WATER))
+        # 模型不设蒸汽缓冲（蒸汽直接外送），蒸汽条高度为 0
+        dot = STEAM_DOT.get(cell.steam_type)
+        if dot:
+            dy = {"STEAM": 1, "HOTSTEAM": 3, "SUPERHOTSTEAM": 5, "ULTRAHOTSTEAM": 7}[cell.steam_type]
+            out.append((4, dy, 2, 2, dot))
+
+    elif kind == "HEATEX":
+        fw = int(min(max(math.ceil(cell.water * 8.0 / 16000.0), 0), 8))
+        out.append((1, 9 - fw, 3, fw, C_HEATEX_IN))
+
+    # CONTROL 在模组里没有 break，会穿透到 CONTROL_AUTO 的插入条
+    if kind == "CONTROL":
+        idx = GROUP_INDEX.get(getattr(cell.group, "value", None))
+        if idx is not None:
+            color = CTRL_COLORS[idx]
+            out.append((3, 1, 1, 8, color))
+            out.append((6, 1, 1, 8, color))
+
+    if kind in ("CONTROL", "CONTROL_AUTO"):
+        if kind == "CONTROL_AUTO":
+            frac = max(0.0, min(1.0, 1.0 - cell.level))
+        else:
+            frac = max(0.0, min(1.0, model.effective_insertion(cell) / 100.0))
+        fr = 8 - int(math.ceil(frac * 8.0))
+        out.append((4, 1, 2, fr, C_AUTO))
+
+    return [r for r in out if r[3] > 0 and r[2] > 0]
+
+
 class ConsoleWindow(tk.Toplevel):
     """控制台窗口（非模态，运行中自动刷新）。"""
 
@@ -102,6 +159,11 @@ class ConsoleWindow(tk.Toplevel):
                                font=theme.FONT_SMALL, justify="left", anchor="w")
         self.status.pack(fill="x", padx=10, pady=(0, 8))
         self.protocol("WM_DELETE_WINDOW", self._close)
+        try:
+            rx, ry = app.root.winfo_rootx(), app.root.winfo_rooty()
+            self.geometry(f"+{rx + 60}+{ry + 96}")
+        except Exception:
+            pass
         self.refresh()
         self._loop()
 
@@ -131,51 +193,8 @@ class ConsoleWindow(tk.Toplevel):
     def _draw_column(self, img, dr, cell, x, y):
         kind = KIND_OF.get(cell.comp, "BLANK")
         img.paste(self._icon(kind), (int(x * CELL / 10), int(y * CELL / 10)))
-
-        heat = self._heat(cell)
-        hh = int(min(max(math.ceil((heat - 20.0) * 10.0 / MAX_HEAT), 0), 10))
-        if hh > 0:
-            self._rect(dr, x, y + 10 - hh, 1, hh, C_HEAT)
-            self._rect(dr, x + 9, y + 10 - hh, 1, hh, C_HEAT)
-
-        if kind in ("FUEL", "FUEL_SIM"):
-            ft = cell.fuel_type
-            if ft is not None:
-                melt = float(getattr(ft, "melting_point", 0.0) or 0.0)
-                fh = 0 if melt <= 0 else int(min(max(math.ceil((cell.hull_heat - 20.0) * 8.0 / melt), 0), 8))
-                fe = int(min(max(math.ceil((1.0 - cell.burnup) * 8.0), 0), 8))
-                fx = int(min(max(math.ceil(cell.xenon * 8.0 / 100.0), 0), 8))
-                self._rect(dr, x + 1, y + 9 - fh, 2, fh, C_SKIN)
-                self._rect(dr, x + 4, y + 9 - fe, 2, fe, C_ENRICH)
-                self._rect(dr, x + 7, y + 9 - fx, 2, fx, C_XENON)
-
-        elif kind == "BOILER":
-            fw = int(min(max(math.ceil(cell.water * 8.0 / BOILER_WATER_MAX), 0), 8))
-            # 模型不设蒸汽缓冲（蒸汽直接外送），蒸汽条按 0 显示
-            fs = 0
-            self._rect(dr, x + 1, y + 9 - fw, 3, fw, C_WATER)
-            self._rect(dr, x + 6, y + 9 - fs, 3, fs, C_STEAM)
-            dot = STEAM_DOT.get(cell.steam_type)
-            if dot:
-                dy = {"STEAM": 1, "HOTSTEAM": 3, "SUPERHOTSTEAM": 5, "ULTRAHOTSTEAM": 7}[cell.steam_type]
-                self._rect(dr, x + 4, y + dy, 2, 2, dot)
-
-        elif kind == "HEATEX":
-            fw = int(min(max(math.ceil(cell.water * 8.0 / 16000.0), 0), 8))
-            self._rect(dr, x + 1, y + 9 - fw, 3, fw, C_HEATEX_IN)
-            self._rect(dr, x + 6, y + 2, 3, 0, C_HEATEX_OUT)
-
-        # CONTROL 在 java 里没有 break，会穿透到 CONTROL_AUTO（模组原样保留）
-        if kind == "CONTROL":
-            idx = GROUP_INDEX.get(getattr(cell.group, "value", None))
-            if idx is not None:
-                color = CTRL_COLORS[idx]
-                self._rect(dr, x + 3, y + 1, 1, 8, color)
-                self._rect(dr, x + 6, y + 1, 1, 8, color)
-
-        if kind in ("CONTROL", "CONTROL_AUTO"):
-            fr = 8 - int(math.ceil(self._insertion_frac(cell) * 8.0))
-            self._rect(dr, x + 4, y + 1, 2, fr, C_AUTO)
+        for ox, oy, w, h, color in column_overlays(cell, self.app.model):
+            self._rect(dr, x + ox, y + oy, w, h, color)
 
     def _draw_graph(self, dr, flux_vals, top):
         w = self.app.model.cols * CELL
