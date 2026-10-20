@@ -576,3 +576,46 @@ def test_chart_shows_avg_temp_flux_and_electricity():
         assert abs(win.chart.hist["flux"][-1] - st.flux) < 1e-9
     finally:
         root.destroy()
+
+
+def test_auto_control_sliders_accept_manual_input():
+    """自动控制棒四个参数：滑块旁有输入框，回车/失焦生效、超范围夹紧、非法输入回退。"""
+    from rbmk.model.components import ComponentType
+    win, root = _fresh()
+    try:
+        win.select_tool(ComponentType.RBMK_CONTROL_AUTO.value)
+        win.grid_editor._paint((2, 2))
+        win.on_select((2, 2))
+        cell = win.model.cell_at(2, 2)
+
+        def walk(w):
+            for ch in w.winfo_children():
+                yield ch
+                yield from walk(ch)
+
+        entries = [w for w in walk(win.panel) if w.winfo_class() == "Entry"]
+        assert len(entries) == 4
+        ent = entries[0]                       # 温度下限
+        assert ent.bind("<Return>")            # 已绑定回车
+        assert ent.bind("<FocusOut>")          # 已绑定失焦
+        scale = ent._auto_scale
+        assert cell.heat_lower == 0.0
+
+        def apply(text):
+            ent.delete(0, "end")
+            ent.insert(0, text)
+            win._auto_entry_applied(cell, "heat_lower", ent, scale)
+
+        apply("321")
+        assert cell.heat_lower == 321.0
+        assert ent.get() == "321"
+        assert float(scale.get()) == 321.0
+
+        apply("99999")
+        assert cell.heat_lower == 1500.0       # 夹到滑块上限
+
+        apply("abc")
+        assert cell.heat_lower == 1500.0       # 非法输入恢复原值
+        assert ent.get() == "1500"
+    finally:
+        root.destroy()

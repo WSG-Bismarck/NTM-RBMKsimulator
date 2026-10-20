@@ -617,17 +617,61 @@ class MainWindow:
         ):
             tk.Label(p, text=label, bg=theme.SURFACE, fg=theme.MUTED,
                      font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(6, 0))
-            sc = tk.Scale(p, from_=lo, to=hi, orient="horizontal", showvalue=True, resolution=1,
+            row = tk.Frame(p, bg=theme.SURFACE)
+            row.pack(fill="x")
+            ent = tk.Entry(row, width=7, bg=theme.SURFACE2, fg=theme.INK, bd=0,
+                           insertbackground=theme.INK, font=theme.FONT_SMALL,
+                           justify="right", highlightthickness=1,
+                           highlightbackground=theme.BORDER, highlightcolor=theme.ACCENT)
+            ent.pack(side="right", padx=(6, 0), ipady=2)
+            ent.insert(0, self._fmt_num(getattr(cell, attr)))
+            sc = tk.Scale(row, from_=lo, to=hi, orient="horizontal", showvalue=False, resolution=1,
                           bg=theme.SURFACE, fg=theme.INK, troughcolor=theme.BORDER,
                           highlightthickness=0, font=theme.FONT_SMALL,
-                          command=lambda v, a=attr: self._set_auto_param(cell, a, v))
+                          command=lambda v, a=attr, e=ent: self._auto_slider_moved(cell, a, v, e))
             sc.set(getattr(cell, attr))
-            sc.pack(fill="x")
+            sc.pack(side="left", fill="x", expand=True)
+            ent.bind("<Return>", lambda ev, a=attr, e=ent, sc=sc: self._auto_entry_applied(cell, a, e, sc))
+            ent.bind("<FocusOut>", lambda ev, a=attr, e=ent, sc=sc: self._auto_entry_applied(cell, a, e, sc))
+            ent._auto_scale = sc
 
-    def _set_auto_param(self, cell, attr, value):
+    AUTO_PARAM_RANGES = {
+        "heat_lower": (0.0, 1500.0),
+        "heat_upper": (0.0, 1500.0),
+        "level_lower": (0.0, 100.0),
+        "level_upper": (0.0, 100.0),
+    }
+
+    @staticmethod
+    def _fmt_num(v) -> str:
+        return f"{float(v):g}"
+
+    def _auto_slider_moved(self, cell, attr, value, entry=None):
         setattr(cell, attr, float(value))
+        if entry is not None:
+            entry.delete(0, "end")
+            entry.insert(0, self._fmt_num(value))
         self._refresh_prop_values()
         self.grid_editor.redraw()
+
+    def _auto_entry_applied(self, cell, attr, entry, scale):
+        """手动输入数值：回车或失焦时生效，超范围会夹到区间内，非法输入恢复原值。"""
+        text = entry.get().strip()
+        lo, hi = self.AUTO_PARAM_RANGES.get(attr, (0.0, 1500.0))
+        try:
+            v = float(text)
+        except ValueError:
+            v = float(getattr(cell, attr))
+        v = max(lo, min(hi, v))
+        setattr(cell, attr, v)
+        entry.delete(0, "end")
+        entry.insert(0, self._fmt_num(v))
+        scale.set(v)
+        self._refresh_prop_values()
+        self.grid_editor.redraw()
+
+    def _set_auto_param(self, cell, attr, value):
+        self._auto_slider_moved(cell, attr, value)
 
     def _set_auto_func(self, cell, name):
         rev = {v: k for k, v in self.AUTO_FUNC_NAMES.items()}
