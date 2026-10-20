@@ -310,11 +310,12 @@
 
 顶部另有中子通量折线（绿色 `#65FF00`），取 `fluxBuffer` 滚动的最大值/最小值做纵轴。
 
-模拟器复刻（`rbmk/app/console_view.py`，工具栏「控制台」，2 倍尺寸绘制）：
+模拟器复刻（`rbmk/app/overlays.py`，直接叠加在**主网格**每格图标上，无独立窗口）：
 
-- 图标、热量条、各类叠加条与模组坐标一致；`heat` 取 `cell.shown_temp`，`maxHeat = 1500`。
+- 图标与叠加层共用同一套 0..10 坐标：图标铺满整格，热量红线落在格子左右边缘，缩放时同步放大。
+- `heat` 取 `cell.shown_temp`，`maxHeat = 1500`。
 - 燃料：`enrichment = 1 - burnup`，`c_heat = hull_heat`，`c_maxHeat = melting_point`，`xenon` 为 0..100。
 - 控制棒分组色取组件自身 `group`；插入深度：手动 = `effective_insertion/100`，自动 = `1 - cell.level`。
 - **蒸汽条固定为空**：模型不设蒸汽缓冲（产汽直接外送），水条用 `cell.water / 10000`。
-- 空白柱、空格子按模组 15×15 网格绘制。
+- 顶部 6 个屏幕槽位、控制台方块联动功能不复刻（显示屏方块已从组件表移除）。
 

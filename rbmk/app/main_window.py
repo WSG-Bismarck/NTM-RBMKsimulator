@@ -56,7 +56,6 @@ class MainWindow:
         self.selected_tool = ComponentType.RBMK_ROD.value
         self.default_fuel = "rbmk_fuel_heu235"
         self.selected_cell: tuple[int, int] | None = None
-        self.console_window = None
         self.tab = "prop"
 
         self._build()
@@ -113,7 +112,6 @@ class MainWindow:
         _btn(bar, "重置", self.reset_simulation).pack(side="left", padx=(4, 0), pady=7)
         self.boiler_btn = _btn(bar, "锅炉：普通", self.toggle_boiler_mode)
         self.boiler_btn.pack(side="left", padx=(4, 0), pady=7)
-        _btn(bar, "控制台", self.open_console).pack(side="left", padx=(4, 0), pady=7)
         self.speed_btns = {}
         grp = tk.Frame(bar, bg=theme.SURFACE)
         grp.pack(side="right", padx=10)
@@ -265,20 +263,6 @@ class MainWindow:
         self.grid_editor.redraw()
         self._refresh_state()
         self.render_panel()
-
-    def open_console(self):
-        """打开/置顶反应堆控制台窗口。"""
-        if self.console_window is not None and self.console_window.winfo_exists():
-            self.console_window.deiconify()
-            self.console_window.lift()
-            self.console_window.focus_force()
-            self.console_window.refresh()
-            return
-        from rbmk.app.console_view import ConsoleWindow
-
-        self.console_window = ConsoleWindow(self)
-        self.console_window.lift()
-        self.console_window.focus_force()
 
     def toggle_boiler_mode(self):
         """切换普通锅炉 / ReaSim 锅炉模式。"""

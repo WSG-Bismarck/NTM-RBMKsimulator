@@ -3,7 +3,7 @@ import tkinter as tk
 
 from rbmk.app import theme
 from rbmk.app.icons import get_icon
-from rbmk.app.console_view import column_overlays
+from rbmk.app.overlays import column_overlays
 from rbmk.model.components import (
     COMPONENT_INFO,
     COMPONENT_SHORT,
@@ -138,7 +138,7 @@ class GridEditor(tk.Frame):
                                     width=3 if (cell is not None and behavior_of(cell.comp) == Behavior.CONTROL) else 1)
                 if cell is not None:
                     # 用模组方块贴图作为图标（缺失时退回字母缩写）
-                    icon = get_icon(cell.comp.value, max(10, cs - 2))
+                    icon = get_icon(cell.comp.value, max(10, cs))
                     if icon is not None:
                         cv.create_image(x + cs / 2, y + cs / 2, image=icon)
                     elif cs >= 18:

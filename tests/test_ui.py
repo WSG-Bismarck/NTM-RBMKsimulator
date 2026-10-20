@@ -689,73 +689,40 @@ def test_components_use_mod_block_icons():
         root.destroy()
 
 
-def test_console_view_reproduces_mod_gui_layout():
-    """控制台视图：热量条 (ceil((t-20)*10/maxHeat)) 与控制棒分组色竖线按模组坐标绘制。"""
-    from rbmk.app.console_view import ConsoleWindow, CELL, GRAPH_H, C_HEAT
+def test_column_overlays_match_console_coordinates():
+    """叠加层几何：热量红线高度、燃料三色条、控制棒分组色坐标与模组一致。"""
+    from rbmk.app.overlays import column_overlays, C_HEAT, C_SKIN, C_ENRICH, C_XENON
     from rbmk.model.components import ComponentType, ControlGroup
-    win, root = _fresh()
-    try:
-        m = win.model
-        m.place(1, 1, ComponentType.RBMK_ROD)
-        m.place(1, 2, ComponentType.RBMK_CONTROL)
-        m.cell_at(1, 1).shown_temp = 770.0          # h = ceil(750*10/1500) = 5
-        m.cell_at(1, 2).group = ControlGroup.RED
-        cw = ConsoleWindow(win)
-        img = cw._render().convert("RGB")
-        oy = GRAPH_H + 8
-        # 燃料柱热量条：左边缘红线自底向上 5 格
-        assert img.getpixel((1 * CELL, oy + 1 * CELL + 17)) == C_HEAT
-        # 上方 6~10 格不应有红线（热量条只有 5 格高）
-        assert img.getpixel((1 * CELL, oy + 1 * CELL + 2)) != C_HEAT
-        # 控制棒分组色（RED）竖线在单元格 x+3 / x+6
-        assert img.getpixel((2 * CELL + 6, oy + 1 * CELL + 10)) == (255, 0, 0)
-        assert img.getpixel((2 * CELL + 12, oy + 1 * CELL + 10)) == (255, 0, 0)
-        cw.destroy()
-    finally:
-        root.destroy()
+    from rbmk.model.reactor import ReactorModel
 
+    m = ReactorModel(3, 3)
+    m.place(1, 1, ComponentType.RBMK_ROD)
+    rod = m.cell_at(1, 1)
+    rod.fuel = "rbmk_fuel_flashlead"
+    rod.shown_temp = 770.0        # ceil(750*10/1500) = 5
+    rod.hull_heat = 2030.0       # 熔点 2050 → ceil(2010*8/2050) = 8
+    rod.burnup = 0.0
+    rod.xenon = 50.0
+    rects = column_overlays(rod, m)
+    colors = {(r[0], r[1], r[2], r[3]): r[4] for r in rects}
+    # 热量红线：左右各 1 宽，高 5，自底向上
+    assert colors[(0, 5, 1, 5)] == C_HEAT
+    assert colors[(9, 5, 1, 5)] == C_HEAT
+    # 燃料三色条：x+1 壳温 / x+4 浓缩度 / x+7 氙毒
+    assert colors[(1, 1, 2, 8)] == C_SKIN      # 壳温 500/熔点 → 满 8
+    assert colors[(4, 1, 2, 8)] == C_ENRICH    # 燃耗 0 → 满 8
+    assert colors[(7, 5, 2, 4)] == C_XENON     # 氙 50% → 4
 
-def test_main_grid_draws_console_overlays():
-    """主网格直接显示控制台叠加层：热量红线、燃料三色条、控制棒分组色。"""
-    from rbmk.model.components import ComponentType, ControlGroup
-    win, root = _fresh()
-    try:
-        win.model.place(2, 2, ComponentType.RBMK_ROD)
-        c = win.model.cell_at(2, 2)
-        c.fuel = "rbmk_fuel_flashlead"
-        c.shown_temp = 770.0     # 热量条 5/10
-        c.hull_heat = 300.0
-        c.burnup = 0.0
-        c.xenon = 40.0
-        win.model.place(2, 3, ComponentType.RBMK_CONTROL)
-        win.model.cell_at(2, 3).group = ControlGroup.BLUE
-        win.grid_editor.redraw()
-        cv = win.grid_editor.canvas
-        fills = {cv.itemcget(i, "fill") for i in cv.find_all() if cv.type(i) == "rectangle"}
-        assert "#a90000" in fills      # 热量红线（169,0,0）
-        assert "#8b00c8" in fills      # 氙毒紫（139,0,200）
-        assert "#3bc800" in fills      # 浓缩度绿（59,200,0）
-        assert "#0026ff" in fills      # 控制棒 BLUE 分组色
-    finally:
-        root.destroy()
-
-
-def test_open_console_creates_and_reuses_window():
-    """工具栏「控制台」打开窗口；再次点击复用同一个窗口。"""
-    win, root = _fresh()
-    try:
-        assert win.console_window is None
-        win.open_console()
-        root.update()
-        cw = win.console_window
-        assert cw is not None and cw.winfo_exists()
-        win.open_console()
-        root.update()
-        assert win.console_window is cw
-        cw.destroy()
-        win.console_window = None
-    finally:
-        root.destroy()
+    m.place(1, 2, ComponentType.RBMK_CONTROL)
+    ctl = m.cell_at(1, 2)
+    ctl.group = ControlGroup.BLUE
+    ctl.insertion = 25.0
+    rects = column_overlays(ctl, m)
+    colors = {(r[0], r[1], r[2], r[3]): r[4] for r in rects}
+    assert colors[(3, 1, 1, 8)] == (0, 38, 255)   # 分组色两条竖线
+    assert colors[(6, 1, 1, 8)] == (0, 38, 255)
+    # 手动棒穿透到插入条：fr = 8 - ceil(0.25*8) = 6
+    assert any(r[:4] == (4, 1, 2, 6) for r in rects)
 
 
 def test_grid_cells_stay_aligned_when_overlays_drawn():
@@ -795,5 +762,46 @@ def test_grid_cells_stay_aligned_when_overlays_drawn():
         bottom = oy + 2 + win.model.rows * (cs + 2)
         for b in boxes:
             assert b[2] <= right and b[3] <= bottom, f"图元超出网格区域: {b}"
+    finally:
+        root.destroy()
+
+
+def test_grid_icons_fill_cell_exactly():
+    """图标必须铺满整格并与格子左上角对齐，否则叠加层会与图标错位。"""
+    from rbmk.model.components import ComponentType
+    win, root = _fresh()
+    try:
+        ge = win.grid_editor
+        win.model.place(2, 2, ComponentType.RBMK_ROD)
+        ge.redraw()
+        cv = ge.canvas
+        cs = ge.cell
+        ox, oy = ge._origin()
+        images = [i for i in cv.find_all() if cv.type(i) == "image"]
+        assert images
+        b = cv.bbox(images[0])
+        x = ox + 2 + 2 * (cs + 2)
+        y = oy + 2 + 2 * (cs + 2)
+        assert abs(b[0] - x) <= 1, f"图标左边未与格子对齐: {b} vs {x}"
+        assert abs(b[1] - y) <= 1, f"图标上边未与格子对齐: {b} vs {y}"
+        assert abs((b[2] - b[0] + 1) - cs) <= 2, f"图标宽度未铺满格子: {b}"
+        assert abs((b[3] - b[1] + 1) - cs) <= 2, f"图标高度未铺满格子: {b}"
+    finally:
+        root.destroy()
+
+
+def test_toolbar_has_no_console_button():
+    """按用户要求移除工具栏的「控制台」入口。"""
+    win, root = _fresh()
+    try:
+        texts = []
+        for w in win.root.winfo_children():
+            if w.winfo_class() != "Frame":
+                continue
+            for c in w.winfo_children():
+                if c.winfo_class() == "Button":
+                    texts.append(c.cget("text"))
+        assert "控制台" not in texts
+        assert not hasattr(win, "open_console")
     finally:
         root.destroy()
