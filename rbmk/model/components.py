@@ -120,6 +120,13 @@ COMPONENT_BEHAVIOR: dict[ComponentType, Behavior] = {
 CORE_COMPONENTS: list[ComponentType] = list(ComponentType)
 AUX_COMPONENTS: list[ComponentType] = []
 
+# 模组里 block.moderated = true 的组件：中子流经过/命中时按 moderatorEfficiency 降低快中子占比
+MODERATED_COMPONENTS: frozenset[ComponentType] = frozenset({
+    ComponentType.RBMK_ROD_MOD,
+    ComponentType.RBMK_ROD_REASIM_MOD,
+    ComponentType.RBMK_CONTROL_MOD,
+})
+
 FUEL_COMPONENTS: tuple[ComponentType, ...] = tuple(
     c for c in ComponentType if COMPONENT_BEHAVIOR[c] == Behavior.FUEL
 )

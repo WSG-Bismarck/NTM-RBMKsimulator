@@ -12,7 +12,15 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from rbmk.model.components import HEAT_FLUIDS, STEAM_TYPES, Behavior, FuelType, NType, behavior_of
+from rbmk.model.components import (
+    HEAT_FLUIDS,
+    MODERATED_COMPONENTS,
+    STEAM_TYPES,
+    Behavior,
+    FuelType,
+    NType,
+    behavior_of,
+)
 from rbmk.model.reactor import ReactorModel
 
 AMBIENT = 20.0
@@ -189,9 +197,11 @@ class SimulationEngine:
                 continue  # 空气不阻挡中子
             b = behavior_of(cell.comp)
 
-            if b == Behavior.MODERATOR:
+            # 模组：type == MODERATOR || nodeTE.isModerated() → moderateStream()
+            if b == Behavior.MODERATOR or cell.comp in MODERATED_COMPONENTS:
                 ratio *= (1.0 - p["moderator_efficiency"])
-                continue
+                if b == Behavior.MODERATOR:
+                    continue
 
             if b == Behavior.CONTROL:
                 level = 1.0 - self.model.effective_insertion(cell) / 100.0
@@ -201,6 +211,9 @@ class SimulationEngine:
                 return
 
             if b == Behavior.REFLECTOR:
+                # 模组：反射体分支中若源燃料棒自身带慢化，反射流再慢化一次
+                if origin.comp in MODERATED_COMPONENTS:
+                    ratio *= (1.0 - p["moderator_efficiency"])
                 if p["reflector_efficiency"] == 1.0:
                     origin.flux_q += flux
                     origin.flux_ratio = ratio

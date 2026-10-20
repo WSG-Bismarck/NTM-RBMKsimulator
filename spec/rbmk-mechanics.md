@@ -148,6 +148,7 @@
   - **反射体**：`reflectorEfficiency = 1.0`（默认）→ 全额反射回源燃料棒；否则 `flux *= efficiency`。
   - **吸收体**：`heat += absorberHeatConversion(0.05) * flux`；`absorberEfficiency = 1.0`（默认）→ 全部吸收并终止。
   - **燃料棒**：接收通量并终止射线。
+- **自带慢化的组件**：`rbmk_rod_mod`、`rbmk_rod_reasim_mod`、`rbmk_control_mod` 在模组里方块属性 `moderated = true`。中子流经过/命中它们时，先执行 `ratio *= 1 - moderatorEfficiency`，再按组件类型处理（燃料接收 / 控制棒衰减）。反射体分支中，若源燃料棒自身带慢化，反射回源棒的流再慢化一次（对应 `runStreamInteraction` 里的 `moderatedCount`）。
 - 燃料对快/慢中子的加权（`fluxFromType`）：
   - `SLOW`：`slow + fast × 0.5`
   - `FAST`：`fast + slow × 0.3`

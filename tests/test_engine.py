@@ -407,3 +407,67 @@ def test_boiler_steam_capped_at_tank_capacity():
     b.temp = 2000.0
     e._heat_tick()
     assert abs(b.steam_rate - 1000000.0) < 1e-6
+
+
+# ---------- 自带慢化的组件 ----------
+def test_moderated_control_rod_slows_passing_stream():
+    m = ReactorModel(1, 5)
+    src = m.place(0, 0, ROD, fuel=HEU)
+    ctrl = m.place(0, 1, ComponentType.RBMK_CONTROL_MOD)
+    ctrl.insertion = 0.0          # 全提出，level=1
+    tgt = m.place(0, 2, ROD, fuel=HEU)
+    e = SimulationEngine(m)
+    e._cast(0, 0, 0, 1, 100.0, 1.0, src)
+    assert tgt.flux_q == 100.0
+    assert tgt.flux_ratio == 0.0   # moderatorEfficiency=1 → 快中子占比清零
+
+
+def test_plain_control_rod_does_not_slow_stream():
+    m = ReactorModel(1, 5)
+    src = m.place(0, 0, ROD, fuel=HEU)
+    ctrl = m.place(0, 1, ComponentType.RBMK_CONTROL)
+    ctrl.insertion = 0.0
+    tgt = m.place(0, 2, ROD, fuel=HEU)
+    e = SimulationEngine(m)
+    e._cast(0, 0, 0, 1, 100.0, 1.0, src)
+    assert tgt.flux_q == 100.0
+    assert tgt.flux_ratio == 1.0
+
+
+def test_moderated_fuel_rod_receives_slow_flux():
+    m = ReactorModel(1, 4)
+    src = m.place(0, 0, ROD, fuel=HEU)
+    rod = m.place(0, 1, ComponentType.RBMK_ROD_MOD, fuel=HEU)
+    e = SimulationEngine(m)
+    e._cast(0, 0, 0, 1, 100.0, 1.0, src)
+    assert rod.flux_q == 100.0
+    assert rod.flux_ratio == 0.0
+
+
+def test_moderated_control_rod_still_attenuates():
+    m = ReactorModel(1, 5)
+    src = m.place(0, 0, ROD, fuel=HEU)
+    ctrl = m.place(0, 1, ComponentType.RBMK_CONTROL_MOD)
+    ctrl.insertion = 50.0        # level=0.5
+    tgt = m.place(0, 2, ROD, fuel=HEU)
+    e = SimulationEngine(m)
+    e._cast(0, 0, 0, 1, 100.0, 1.0, src)
+    assert tgt.flux_q == 50.0
+    assert tgt.flux_ratio == 0.0
+
+
+def test_moderated_origin_reflected_stream_is_slowed():
+    m = ReactorModel(1, 4)
+    src = m.place(0, 0, ComponentType.RBMK_ROD_MOD, fuel=HEU)
+    m.place(0, 1, REFL)
+    e = SimulationEngine(m)
+    e._cast(0, 0, 0, 1, 100.0, 1.0, src)
+    assert src.flux_q == 100.0
+    assert src.flux_ratio == 0.0
+
+    m2 = ReactorModel(1, 4)
+    src2 = m2.place(0, 0, ROD, fuel=HEU)
+    m2.place(0, 1, REFL)
+    e2 = SimulationEngine(m2)
+    e2._cast(0, 0, 0, 1, 100.0, 1.0, src2)
+    assert src2.flux_ratio == 1.0
