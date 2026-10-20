@@ -606,3 +606,27 @@ def test_heat_coeff_uses_core_temperature():
     hot = e3._burn(r3, r3.fuel_type, 100.0)[0]
     # LOG_TEN 对富集度是分母关系，乘上 mult 后输出会变化（方向不重要，关键是“芯温生效”）
     assert abs(hot - base) > 1e-6
+
+
+def test_boiler_water_supply_limits_cooling():
+    """供水不足时，锅炉只能带走与水量对应的热量，柱温会停在 100 以上。"""
+    m = ReactorModel(3, 3)
+    b = m.place(1, 1, BOIL)
+    e = SimulationEngine(m, {"boiler_water_supply": 1000.0})
+    b.temp = 2000.0
+    b.water = 0.0
+    e._heat_tick()
+    # 冷却后 1997.5；heatProvided=1897.5 → 需求 18975 mB；只有 1000 mB → 移除 100
+    assert abs(b.temp - 1897.5) < 1e-9
+    assert b.water == 0.0
+
+
+def test_boiler_full_tank_cools_to_steam_threshold():
+    """水箱充足时，锅炉仍会把柱温压到当前蒸汽类型的阈值。"""
+    m = ReactorModel(3, 3)
+    b = m.place(1, 1, BOIL)
+    e = SimulationEngine(m)
+    b.temp = 800.0
+    b.water = 10000.0
+    e._heat_tick()
+    assert abs(b.temp - 100.0) < 1e-9

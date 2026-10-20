@@ -182,7 +182,7 @@
   - 非超浓密：`waterUsed = min(heatProvided / 0.1, feed)`；`steamProduced = waterUsed * 100 / factor`。
   - 超浓密：`steamProduced = heatProvided / 0.1 * 100 / factor`；`waterUsed = steamProduced / 100 * factor`；供水不足时按 `feed` 反算。
   - `heat -= waterUsed * 0.1`。
-- 软件中 `feed` 视为持续供水（10000 MB），不模拟管道补水。
+- 软件中 `feed` 为 10,000 mB 水箱，每 tick 补水 1,000 mB（对应模组蒸汽泵 `steamSpeed = 1000`）；供水不足时降温受限，柱温会高于当前蒸汽类型的阈值（不再恒定钉在 100°C）。
 - 每 tick 产汽上限 = 模组蒸汽罐容量 **1,000,000 mB**。
 - 发电量按 `steam / 100` 折算，保持旧版标定（100 mB 蒸汽 ≈ 1 单位水）。
 - 蒸汽驱动涡轮发电。

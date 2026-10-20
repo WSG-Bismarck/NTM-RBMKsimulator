@@ -41,7 +41,8 @@ DEFAULT_PARAMS = {
     "absorber_efficiency": 1.0,      # RBMKKeys: dialAbsorberEfficiency = 1.0
     "absorber_heat_conversion": 0.05,  # RBMKKeys: dialAbsorberHeatConversion = 0.05
     "boiler_heat_consumption": 0.1,  # RBMKKeys: dialBoilerHeatConsumption = 0.1
-    "boiler_feed": 10000.0,          # 模组锅炉 feed 罐容量（MB），视为持续供水
+    "boiler_feed": 10000.0,          # 模组锅炉 feed 罐容量（MB）
+    "boiler_water_supply": 1000.0,   # 模型层：每 tick 补水速率（MB），有限供水才会出现 >100°C
     "boiler_tank": 1000000.0,        # 模组锅炉 steam 罐容量（MB）→ 每 tick 产汽上限
     "reasim_boiler_speed": 0.05,     # RBMKKeys: dialReasimBoilerSpeed = 0.05
     "reasim_boiler_capacity": 16000.0,  # ReaSim 单柱水/汽容量（mB）
@@ -146,7 +147,7 @@ class SimulationEngine:
             cell.steam_rate = 0.0
             cell.heater_rate = 0.0
             cell.heater_heat = 0.0
-            cell.water = 100.0
+            cell.water = self.p["boiler_feed"]
             cell.xenon = 0.0
             cell.burnup = 0.0
             cell.flux_q = 0.0
@@ -355,11 +356,12 @@ class SimulationEngine:
                 cell.temp -= made * hpm
                 steam += made
         else:
-            feed = p["boiler_feed"]
             for r, c, cell in cells:
                 if behavior_of(cell.comp) != Behavior.BOILER:
                     continue
                 cell.steam_rate = 0.0
+                # 有限供水：水箱 + 每 tick 补水速率（模组里由管道补水）
+                feed = min(cell.water + p["boiler_water_supply"], p["boiler_feed"])
                 st = STEAM_TYPES.get(cell.steam_type, STEAM_TYPES["STEAM"])
                 # 模组：heatProvided = heat - getHeatFromSteam(当前蒸汽类型)
                 heat_provided = cell.temp - st.heat
