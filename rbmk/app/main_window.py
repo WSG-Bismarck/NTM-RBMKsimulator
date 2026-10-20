@@ -308,6 +308,9 @@ class MainWindow:
         tk.Frame(head, bg=color, width=12, height=12).pack(side="left", padx=(0, 6))
         tk.Label(head, text=name, bg=theme.SURFACE, fg=theme.INK,
                  font=theme.FONT_BOLD).pack(side="left")
+        if beh == Behavior.FUEL and cell.fuel_type and cell.fuel_type.is_self_igniting:
+            tk.Label(head, text="自燃", bg=theme.ACCENT, fg="#16120a",
+                     font=(theme.FAMILY, 7, "bold"), padx=4).pack(side="left", padx=(6, 0))
         tk.Label(head, text=f"{r+1}行 {c+1}列", bg=theme.SURFACE, fg=theme.MUTED,
                  font=(theme.FAMILY, 8)).pack(side="right")
 
@@ -355,6 +358,7 @@ class MainWindow:
             self._prop_row("熔点", "melt")
             self._prop_row("燃烧函数", "function")
             self._prop_row("反应性", "reactivity")
+            self._prop_row("自发射率", "selfrate")
             self._prop_row("中子类型", "ntype")
         if beh == Behavior.CONTROL:
             self._prop_row("有效 level", "level")
@@ -407,7 +411,8 @@ class MainWindow:
                 "life": f"{(1 - cell.burnup) * 100:.3f}%",
                 "melt": f"{ft.melting_point:.0f} °C",
                 "function": ft.function,
-                "reactivity": f"{ft.reactivity:g}（自 {ft.self_rate:g}）",
+                "reactivity": f"{ft.reactivity:g}",
+                "selfrate": f"{ft.self_rate:g}/tick",
                 "ntype": f"{ft.n_type.value} / {ft.r_type.value}",
             })
         if behavior_of(cell.comp) == Behavior.CONTROL:

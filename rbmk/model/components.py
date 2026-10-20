@@ -191,6 +191,11 @@ class FuelType:
     heat_coeff_start: float
     heat_coeff_length: float
 
+    @property
+    def is_self_igniting(self) -> bool:
+        """selfRate > 0：模组中的“自燃”燃料，无需外部中子源即可发射中子。"""
+        return self.self_rate > 0.0
+
     def to_dict(self) -> dict:
         return {
             "key": self.key, "name_cn": self.name_cn,

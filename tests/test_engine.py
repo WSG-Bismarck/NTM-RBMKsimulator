@@ -174,3 +174,36 @@ def test_boilers_prevent_meltdown():
     e = SimulationEngine(m)
     e.advance(60)
     assert not e.state.melted
+
+
+# ---------- 自燃燃料 ----------
+def test_all_self_igniting_fuels_emit_without_source():
+    self_igniting = [k for k, f in FUELS.items() if f.is_self_igniting]
+    assert len(self_igniting) == 10
+    for key in self_igniting:
+        m = ReactorModel(5, 5)
+        m.place(2, 2, ROD, fuel=key)
+        e = SimulationEngine(m)
+        e.advance(1.0)
+        assert e.state.power > 0, key
+        assert e.state.flux > 0, key
+
+
+def test_non_self_igniting_fuel_needs_source():
+    m = ReactorModel(5, 5)
+    m.place(2, 2, ROD, fuel=HEU)
+    e = SimulationEngine(m)
+    e.advance(2.0)
+    assert e.state.power == 0.0
+    assert e.state.flux == 0.0
+
+
+def test_self_igniting_emission_follows_burn_function():
+    """LEA：SQUARE_ROOT，self=10，reac=60 → sqrt(10)*60/10 = 18.97"""
+    m = ReactorModel(5, 5)
+    rod = m.place(2, 2, ROD, fuel="rbmk_fuel_lea")
+    e = SimulationEngine(m)
+    e.advance(0.05)  # 恰好 1 tick
+    ft = FUELS["rbmk_fuel_lea"]
+    expected = reactivity_function(ft, ft.self_rate, 1.0)
+    assert abs(rod.flux - expected) < 1e-6

@@ -149,7 +149,7 @@ def test_prop_panel_shows_component_parameters():
         win.model.place(3, 3, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
         win.on_select((3, 3))
         assert win._prop_labels
-        for key in ("temp", "core", "hull", "flux", "fast", "slow", "ratio", "outflux"):
+        for key in ("temp", "core", "hull", "flux", "fast", "slow", "ratio", "outflux", "selfrate"):
             assert key in win._prop_labels
         assert "°C" in win._prop_labels["temp"].cget("text")
         assert win._prop_labels["fast"].cget("text") != "—"
@@ -167,5 +167,27 @@ def test_prop_panel_control_and_boiler_fields():
         assert "level" in win._prop_labels
         win.on_select((2, 3))
         assert "steam" in win._prop_labels
+    finally:
+        root.destroy()
+
+
+def test_prop_panel_marks_self_igniting_fuel():
+    win, root = _fresh()
+    try:
+        win.model.place(2, 2, ComponentType.RBMK_ROD, fuel="rbmk_fuel_lea")
+        win.on_select((2, 2))
+
+        def texts(w):
+            out = []
+            for ch in w.winfo_children():
+                try:
+                    if "text" in ch.keys():
+                        out.append(ch.cget("text"))
+                except Exception:
+                    pass
+                out.extend(texts(ch))
+            return out
+
+        assert "自燃" in texts(win.panel)
     finally:
         root.destroy()
