@@ -130,5 +130,53 @@
 - **清单类数据 100% 来自 jar**（组件/燃料/分组/参数键）。
 - **燃料逐项数值已精确还原（v2）**：已用 CFR 0.152 反编译 `ModItems`，把 34 种燃料的 `setStats/setHeat/setMeltingPoint/setYield/setDiffusion/setXenon/setHeatCoeff/setNeutronTypes` 实参逐条提取，写入 `rbmk/model/fuel_data.py`（由 `tools/parse_fuels.py` 生成）。
 - **反应性/燃烧/氙毒公式已精确还原**：`reactivity_function` 逐函数实现 `ItemRBMKRod.reactivityFunc` 的 9 种燃烧函数（PASSIVE/LOG_TEN/PLATEU/ARCH/SIGMOID/SQUARE_ROOT/LINEAR/QUADRATIC/EXPERIMENTAL）；氙毒按 `xenonGenFunc/xenonBurnFunc` 实现。
-- **仍为模型层的部分**：全局通量标度 `base_flux`、热工系数 `heat_coeff/cooling_coeff`、慢化/反射/吸收/控制棒效率——这些是反应堆级的聚合参数，尚未逐项对齐 `RBMKDials` 默认值（需进一步解析 GameRules 默认值）。
+- **v3 已对齐 RBMKDials 默认值**：`columnHeatFlow=0.2`、`passiveCooling=2.5`、`passiveCoolingInner=0.1`、`heatProvision=0.2`、`diffusionMod=1.0`、慢化/吸收/反射效率均为 `1.0`、`absorberHeatConversion=0.05`、`boilerHeatConsumption=0.1`、`fluxRange=5`、`columnHeight=4`。仍为模型层的只剩「锅炉供水能力」与「涡轮效率」两个聚合参数。
 - 中文显示名部分仍为按命名推断，可从模组语言文件对齐。
+
+---
+
+## 7. 组件交互函数（v3 已还原进引擎）
+
+来源：`RBMKNeutronHandler`、`TileEntityRBMKBase`、`TileEntityRBMKRod`、`ItemRBMKRod`、`RBMKDials$RBMKKeys`
+
+### 7.1 中子传播（RBMKNeutronStream.runStreamInteraction）
+- 燃料棒向 **4 个正方向**（东/南/西/北）各发射一条中子流，射程 `fluxRange = 5`。
+- 沿射线逐格处理：
+  - **空气**：穿透，不阻挡。
+  - **慢化剂**：`fluxRatio *= 1 - moderatorEfficiency`（默认 1.0 → 快中子全部转为慢中子）。
+  - **控制棒**：`level = 1 - 插入度`；`level > 0` → `flux *= level` 继续；`level = 0` → 全部吸收并终止。
+  - **反射体**：`reflectorEfficiency = 1.0`（默认）→ 全额反射回源燃料棒；否则 `flux *= efficiency`。
+  - **吸收体**：`heat += absorberHeatConversion(0.05) * flux`；`absorberEfficiency = 1.0`（默认）→ 全部吸收并终止。
+  - **燃料棒**：接收通量并终止射线。
+- 燃料对快/慢中子的加权（`fluxFromType`）：
+  - `SLOW`：`slow + fast × 0.5`
+  - `FAST`：`fast + slow × 0.3`
+  - `ANY`：`fast + slow`
+
+### 7.2 热量（TileEntityRBMKBase.moveHeat / coolPassively）
+- 每 tick 四邻扩散：`heat += (四邻平均 - heat) × columnHeatFlow(0.2)`。
+- 被动冷却：`heat -= passiveCoolingInner(0.1) + (passiveCooling(2.5) - 0.1) × ((4 - 邻接数) / 4)`，下限 20。
+- 燃料棒热链（`ItemRBMKRod.updateHeat / provideHeat`）：
+  - `core += outFlux × heat`
+  - `mid = (core - hull) / 2`；`core -= mid × diffusion × diffusionMod`；`hull += mid × diffusion × diffusionMod`
+  - 若 `hull > columnHeat`：`ret = (hull - columnHeat) / 2 × heatProvision(0.2)`；`hull -= ret`；`columnHeat += ret`
+- 熔毁：`columnHeat > 燃料熔点`。
+
+### 7.3 锅炉（TileEntityRBMKBoiler）
+- 热 > 100 时：`waterUsed = (heat - 100) / boilerHeatConsumption(0.1)`，受供水能力限制。
+- `steam += waterUsed`；`heat -= waterUsed × 0.1`。
+- 蒸汽驱动涡轮发电。
+
+### 7.4 各组件的模拟作用（v3）
+| 组件 | 作用 |
+|---|---|
+| 燃料通道（4 种） | 接收中子 → 燃烧 → 发热 → 向 4 向发射中子 |
+| 控制棒（5 种） | 按插入深度衰减/阻断中子 |
+| 蒸汽管道 | 吸收热量产蒸汽 |
+| 石墨慢化剂 | 快中子 → 慢中子 |
+| 硼中子吸收器 | 吸收中子并自身发热 |
+| 碳化钨中子反射器 | 把中子反射回源燃料棒 |
+| 辐照通道 | 接收中子（用于辐照产物） |
+| 冷却器 | 参与被动冷却（模型层） |
+| 流体加热器 | 热源/工质加热（模型层） |
+| 结构柱 / 存储棒 | 无中子作用，仅传热 |

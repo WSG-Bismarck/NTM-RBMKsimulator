@@ -1,28 +1,40 @@
-"""模拟引擎：中子学、热、蒸汽、发电、燃料消耗、氙毒、熔毁。
+"""逐格方向性 RBMK 模拟引擎。
 
-燃料反应性/燃烧/氙毒公式与常量来自 HBM-NTM-.1.0.27_X5846.jar 反编译
-（ItemRBMKRod.reactivityFunc / burn / xenonGenFunc / xenonBurnFunc）。
-热工与全局通量标度为模型层（见 spec/rbmk-mechanics.md）。
+交互逻辑来源：HBM-NTM-.1.0.27_X5846.jar（CFR 反编译）：
+- 中子：RBMKNeutronHandler.RBMKNeutronStream（4 方向射线、射程 fluxRange=5、
+  慢化剂改快/慢比、反射体衰减、吸收体吸热、控制棒按 level 衰减、燃料棒接收即停）
+- 燃料：ItemRBMKRod.reactivityFunc / burn / xenonGenFunc / xenonBurnFunc（精确）
+- 热量：TileEntityRBMKBase.moveHeat / coolPassively（四邻平均扩散 + 按邻接数被动冷却）
+- 锅炉：TileEntityRBMKBoiler（热量 -> 蒸汽，heat -= waterUsed * heatPerMB）
 """
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
 
-from rbmk.model.components import Behavior, FuelType, behavior_of
-from rbmk.model.reactor import FUEL_TYPES, ReactorModel
+from rbmk.model.components import Behavior, FuelType, NType, behavior_of
+from rbmk.model.reactor import ReactorModel
 
-AMBIENT = 25.0
+AMBIENT = 20.0
+DIRS = ((0, 1), (1, 0), (0, -1), (-1, 0))  # 东南西北
 
 DEFAULT_PARAMS = {
-    "base_flux": 40.0,
-    "moderator_efficiency": 0.30,
-    "absorber_efficiency": 0.08,
-    "reflector_efficiency": 0.25,
-    "control_efficiency": 0.50,
-    "heat_coeff": 0.50,
-    "cooling_coeff": 0.03,
-    "passive_cooling": 0.005,
+    "flux_range": 5,                 # RBMKKeys: dialFluxRange = 5
+    "column_height": 4,              # RBMKKeys: dialColumnHeight = 4
+    "column_heat_flow": 0.2,         # RBMKKeys: dialColumnHeatFlow = 0.2
+    "passive_cooling": 2.5,          # RBMKKeys: dialPassiveCooling = 2.5
+    "passive_cooling_inner": 0.1,    # RBMKKeys: dialPassiveCoolingInner = 0.1
+    "fuel_diffusion_mod": 1.0,       # RBMKKeys: dialDiffusionMod = 1.0
+    "heat_provision": 0.2,           # RBMKKeys: dialHeatProvision = 0.2
+    "moderator_efficiency": 1.0,     # RBMKKeys: dialModeratorEfficiency = 1.0
+    "reflector_efficiency": 1.0,     # RBMKKeys: dialReflectorEfficiency = 1.0
+    "absorber_efficiency": 1.0,      # RBMKKeys: dialAbsorberEfficiency = 1.0
+    "absorber_heat_conversion": 0.05,  # RBMKKeys: dialAbsorberHeatConversion = 0.05
+    "boiler_heat_consumption": 0.1,  # RBMKKeys: dialBoilerHeatConsumption = 0.1
+    "boiler_capacity": 50.0,           # 每个锅炉每 tick 最多吸收的热量（供水能力，模型层）
+    "control_speed_mod": 1.0,
+    "reactivity_mod": 1.0,
+    "surge_mod": 1.0,
     "turbine_efficiency": 0.30,
     "power_scale": 100.0,
     "warning_ratio": 0.60,
@@ -32,6 +44,7 @@ DEFAULT_PARAMS = {
 }
 
 
+# ---------- 燃料公式（精确还原） ----------
 def depletion_modifier(dep_func: str, enrichment: float) -> float:
     e = enrichment
     if dep_func == "RAISING_SLOPE":
@@ -70,6 +83,17 @@ def reactivity_function(ft: FuelType, in_flux: float, enrichment: float) -> floa
     return 0.0
 
 
+def flux_from_type(ft: FuelType, quantity: float, ratio: float) -> float:
+    """TileEntityRBMKRod.fluxFromType：按燃料对快/慢中子的敏感度取加权通量。"""
+    fast = quantity * ratio
+    slow = quantity * (1.0 - ratio)
+    if ft.n_type == NType.SLOW:
+        return slow + fast * 0.5
+    if ft.n_type == NType.FAST:
+        return fast + slow * 0.3
+    return quantity
+
+
 @dataclass
 class EngineState:
     time: float = 0.0
@@ -83,7 +107,7 @@ class EngineState:
     xenon: float = 0.0
     status: str = "normal"
     melted: bool = False
-    melt_temp: float = 2800.0
+    melt_temp: float = 1500.0
     temp_rate: float = 0.0
 
 
@@ -92,8 +116,10 @@ class SimulationEngine:
         self.model = model
         self.p = {**DEFAULT_PARAMS, **(params or {})}
         self.state = EngineState(melt_temp=self._min_melting())
+        self._steam_tick = 0.0
         self._reset()
 
+    # ---------- 初始化 ----------
     def _reset(self) -> None:
         for _, _, cell in self.model.iter_cells():
             cell.temp = AMBIENT
@@ -102,6 +128,13 @@ class SimulationEngine:
             cell.steam = 0.0
             cell.water = 100.0
             cell.xenon = 0.0
+            cell.flux_q = 0.0
+            cell.flux_ratio = 0.0
+            cell.last_flux_q = 0.0
+            cell.last_flux_ratio = 0.0
+            cell.has_rod = cell.fuel_type is not None and cell.fuel != "rbmk_fuel_empty"
+            cell.core_heat = 20.0
+            cell.hull_heat = 20.0
         self.state = EngineState(melt_temp=self._min_melting())
 
     def reset(self) -> None:
@@ -111,130 +144,199 @@ class SimulationEngine:
         best = None
         for _, _, cell in self.model.iter_cells():
             ft = cell.fuel_type
-            if behavior_of(cell.comp) == Behavior.FUEL and ft and ft.melting_point > 0:
+            if cell.has_rod and ft and ft.melting_point > 0:
                 best = ft.melting_point if best is None else min(best, ft.melting_point)
-        return best or 2800.0
+        return best or 1500.0
 
-    def _neighbors(self, r: int, c: int):
-        for dr in (-1, 0, 1):
-            for dc in (-1, 0, 1):
-                if dr == 0 and dc == 0:
-                    continue
-                nb = self.model.cell_at(r + dr, c + dc)
-                if nb is not None:
-                    yield nb
-
-    def _count(self, b: Behavior) -> int:
-        return sum(1 for _, _, c in self.model.iter_cells() if behavior_of(c.comp) == b)
-
-    def _control_absorption(self) -> float:
-        total = 0.0
-        for _, _, cell in self.model.control_cells():
-            total += self.model.effective_insertion(cell) / 100.0
-        return total
-
-    def _fuel_cells(self):
-        return [
-            (r, c, cell)
-            for r, c, cell in self.model.iter_cells()
-            if behavior_of(cell.comp) == Behavior.FUEL and cell.fuel_type is not None
-        ]
-
-    def _substep(self, dt: float) -> None:
+    # ---------- 中子 ----------
+    def _burn(self, cell, ft: FuelType, flux_in: float) -> tuple[float, float]:
         p = self.p
-        s = self.state
-        if s.melted:
-            return
+        in_flux = flux_in + ft.self_rate
+        if p["enable_xenon"] and ft.x_burn > 0:
+            x0 = cell.xenon
+            burn = in_flux * in_flux / ft.x_burn
+            in_flux *= max(0.0, 1.0 - x0 / 100.0)
+            gen = in_flux * ft.x_gen
+            cell.xenon = _clamp(x0 - burn + gen, 0.0, 100.0)
 
-        prev_temp = s.temperature
-        fuel = self._fuel_cells()
-        max_temp = s.temperature
+        enrichment = max(0.0, 1.0 - cell.burnup)
+        # 热系数（ItemRBMKRod.burn 中的 mult）
+        if ft.heat_coeff_start != 0.0 and cell.temp >= ft.heat_coeff_start and ft.heat_coeff_length > 0:
+            prog = min(1.0, (cell.temp - ft.heat_coeff_start) / ft.heat_coeff_length)
+            enrichment *= math.sin((prog * math.pi + math.pi) / 2.0)
 
-        mod = self._count(Behavior.MODERATOR)
-        refl = self._count(Behavior.REFLECTOR)
-        absb = self._count(Behavior.ABSORBER)
-        boiler = self._count(Behavior.BOILER)
-        cooler = self._count(Behavior.COOLER)
-        ctrl = self._control_absorption()
+        out_flux = reactivity_function(ft, in_flux, enrichment)
+        if ft.yield_ > 0:
+            cell.burnup = min(1.0, cell.burnup + in_flux / ft.yield_)
+        out_ratio = 0.0 if ft.r_type == NType.SLOW else 1.0
+        return out_flux, out_ratio
 
-        mod_factor = 1.0 + p["moderator_efficiency"] * math.sqrt(mod)
-        refl_factor = 1.0 + p["reflector_efficiency"] * math.sqrt(refl)
-        abs_factor = 1.0 / (1.0 + p["absorber_efficiency"] * absb + p["control_efficiency"] * ctrl)
+    def _cast(self, r: int, c: int, dr: int, dc: int, flux: float, ratio: float, origin) -> None:
+        """沿一个方向逐格推进中子射线（RBMKNeutronStream.runStreamInteraction）。"""
+        p = self.p
+        for i in range(1, p["flux_range"] + 1):
+            nr, nc = r + dr * i, c + dc * i
+            if not (0 <= nr < self.model.rows and 0 <= nc < self.model.cols):
+                return
+            cell = self.model.grid[nr][nc]
+            if cell is None:
+                continue  # 空气不阻挡中子
+            b = behavior_of(cell.comp)
 
-        flow = self.model.coolant_flow / 100.0
-        # 冷却器额外提供冷却能力
-        cooling = flow * p["cooling_coeff"] * (1.0 + 0.15 * cooler) + p["passive_cooling"]
+            if b == Behavior.MODERATOR:
+                ratio *= (1.0 - p["moderator_efficiency"])
+                continue
 
-        total_flux = 0.0
-        total_heat = 0.0
-        burn_sum = 0.0
-        xenon_sum = 0.0
+            if b == Behavior.CONTROL:
+                level = 1.0 - self.model.effective_insertion(cell) / 100.0
+                if level > 0.0:
+                    flux *= level
+                    continue
+                return
 
-        for r, c, cell in fuel:
+            if b == Behavior.REFLECTOR:
+                if p["reflector_efficiency"] == 1.0:
+                    origin.flux_q += flux
+                    origin.flux_ratio = ratio
+                    return
+                flux *= p["reflector_efficiency"]
+                continue
+
+            if b == Behavior.ABSORBER:
+                cell.heat += p["absorber_heat_conversion"] * flux
+                if p["absorber_efficiency"] == 1.0:
+                    return
+                flux *= p["absorber_efficiency"]
+                continue
+
+            if b == Behavior.FUEL:
+                if not cell.has_rod or cell.fuel_type is None:
+                    continue
+                fast = cell.flux_q * cell.flux_ratio + flux * ratio
+                cell.flux_q += flux
+                cell.flux_ratio = fast / cell.flux_q if cell.flux_q > 0 else 0.0
+                return
+
+            # OTHER（结构柱/存储/冷却器/加热器/辐照通道）：中子直接穿过
+            continue
+
+    def _neutron_tick(self) -> None:
+        p = self.p
+        for _, _, cell in self.model.iter_cells():
+            cell.flux_q = 0.0
+            cell.flux_ratio = 0.0
+
+        rods = [(r, c, cell) for r, c, cell in self.model.iter_cells()
+                if cell.has_rod and cell.fuel_type is not None]
+
+        for r, c, cell in rods:
             ft = cell.fuel_type
-            nmod = sum(1 for nb in self._neighbors(r, c)
-                       if behavior_of(nb.comp) == Behavior.MODERATOR)
-            in_flux = p["base_flux"] * mod_factor * refl_factor * abs_factor * (1.0 + 0.10 * nmod)
-            in_flux += ft.self_rate
-
-            if p["enable_xenon"] and ft.x_burn > 0:
-                x0 = cell.xenon
-                burn = in_flux * in_flux / ft.x_burn
-                in_flux *= max(0.0, 1.0 - x0 / 100.0)
-                gen = in_flux * ft.x_gen
-                cell.xenon = _clamp(x0 - burn + gen, 0.0, 100.0)
-
-            enrichment = max(0.0, 1.0 - cell.burnup)
-            out_flux = reactivity_function(ft, in_flux, enrichment)
+            flux_in = flux_from_type(ft, cell.last_flux_q, cell.last_flux_ratio)
+            out_flux, out_ratio = self._burn(cell, ft, flux_in)
             cell.flux = out_flux
             cell.heat = out_flux * ft.heat
-            total_flux += out_flux
-            total_heat += cell.heat
+            # 芯 -> 壳 -> 柱 热链（ItemRBMKRod.updateHeat / provideHeat）
+            if cell.heat > 0.0:
+                core = min(1_000_000.0, max(20.0, cell.core_heat + cell.heat))
+                mid = (core - cell.hull_heat) / 2.0
+                diff = mid * ft.diffusion * p["fuel_diffusion_mod"]
+                cell.core_heat = core - diff
+                cell.hull_heat += diff
+                if cell.hull_heat > cell.temp:
+                    ret = (cell.hull_heat - cell.temp) / 2.0 * p["heat_provision"]
+                    cell.hull_heat -= ret
+                    cell.temp += ret
+            if out_flux > 0.0:
+                for dr, dc in DIRS:
+                    self._cast(r, c, dr, dc, out_flux, out_ratio, cell)
 
-            if ft.yield_ > 0:
-                cell.burnup = min(1.0, cell.burnup + in_flux / ft.yield_)
-            burn_sum += cell.burnup
-            xenon_sum += cell.xenon
+        for _, _, cell in rods:
+            cell.last_flux_q = cell.flux_q
+            cell.last_flux_ratio = cell.flux_ratio
 
-            dtemp = (cell.heat * p["heat_coeff"] - cooling * (cell.temp - AMBIENT)) * dt
-            cell.temp += dtemp
-            if cell.temp > max_temp:
-                max_temp = cell.temp
+    # ---------- 热量 ----------
+    def _heat_tick(self) -> None:
+        p = self.p
+        cells = [(r, c, cell) for r, c, cell in self.model.iter_cells()]
 
-        if fuel:
-            steam_frac = min(1.0, boiler / max(1, len(fuel)))
-            s.steam = total_heat * steam_frac
-            s.electricity = s.steam * p["turbine_efficiency"] * p["power_scale"]
-        else:
-            s.steam = 0.0
-            s.electricity = 0.0
-            for _, _, cell in self.model.iter_cells():
-                cell.temp += (AMBIENT - cell.temp) * min(1.0, dt * 0.05)
-            max_temp = max((c.temp for _, _, c in self.model.iter_cells()), default=AMBIENT)
+        # 四邻平均扩散
+        for r, c, cell in cells:
+            nb = [self.model.cell_at(r + dr, c + dc) for dr, dc in DIRS]
+            nb = [n for n in nb if n is not None]
+            total = cell.temp + sum(n.temp for n in nb)
+            avg = total / (len(nb) + 1)
+            cell.temp += (avg - cell.temp) * p["column_heat_flow"]
 
-        s.time += dt
+        # 按邻接数被动冷却（邻接越少冷却越强）
+        for r, c, cell in cells:
+            n = sum(1 for dr, dc in DIRS if self.model.cell_at(r + dr, c + dc) is not None)
+            outer = p["passive_cooling"]
+            inner = p["passive_cooling_inner"]
+            cooling = inner + (outer - inner) * ((4 - min(max(n, 0), 4)) / 4.0)
+            cell.temp -= cooling
+            if cell.temp < AMBIENT:
+                cell.temp = AMBIENT
+
+        # 锅炉：热量 -> 蒸汽
+        steam = 0.0
+        for r, c, cell in cells:
+            if behavior_of(cell.comp) != Behavior.BOILER or cell.temp < 100.0:
+                continue
+            heat_available = min(cell.temp - 100.0, p["boiler_capacity"])
+            if heat_available <= 0:
+                continue
+            water = heat_available / p["boiler_heat_consumption"]
+            cell.temp -= heat_available
+            cell.steam += water
+            steam += water
+        self._steam_tick = steam
+
+        # 熔毁判定
+        for _, _, cell in cells:
+            if cell.has_rod and cell.fuel_type and cell.fuel_type.melting_point > 0:
+                if cell.temp > cell.fuel_type.melting_point:
+                    self.state.melted = True
+
+    # ---------- 状态 ----------
+    def _update_state(self) -> None:
+        p = self.p
+        s = self.state
+        rods = [(r, c, cell) for r, c, cell in self.model.iter_cells()
+                if cell.has_rod and cell.fuel_type is not None]
+        s.melt_temp = self._min_melting()
+
+        total_flux = sum(cell.flux for _, _, cell in rods)
+        total_heat = sum(cell.heat for _, _, cell in rods)
+        max_temp = max((cell.temp for _, _, cell in self.model.iter_cells()), default=AMBIENT)
+
+        prev_temp = s.temperature
+        s.time += 0.05
         s.power = total_heat * p["power_scale"]
         s.flux = total_flux
         s.temperature = max_temp
-        s.total_energy += s.electricity * dt / 3600.0
-        if fuel:
-            s.fuel_remaining = 100.0 * (1.0 - burn_sum / len(fuel))
-            s.xenon = xenon_sum / len(fuel)
-        s.temp_rate = (s.temperature - prev_temp) / dt if dt > 0 else 0.0
+        s.temp_rate = (max_temp - prev_temp) / 0.05
+        s.steam = self._steam_tick * 20.0
+        s.electricity = s.steam * p["turbine_efficiency"] * p["power_scale"]
+        s.total_energy += s.electricity * 0.05 / 3600.0
 
-        melt = s.melt_temp
-        if max_temp >= melt:
+        if rods:
+            s.fuel_remaining = 100.0 * (1.0 - sum(cell.burnup for _, _, cell in rods) / len(rods))
+            s.xenon = sum(cell.xenon for _, _, cell in rods) / len(rods)
+
+        melt = s.melt_temp or 1500.0
+        if s.melted or max_temp >= melt:
             s.melted = True
-        ratio = max_temp / melt if melt > 0 else 0.0
-        if s.melted:
             s.status = "meltdown"
-        elif ratio >= p["danger_ratio"]:
-            s.status = "danger"
-        elif ratio >= p["warning_ratio"]:
-            s.status = "warning"
         else:
-            s.status = "normal"
+            ratio = max_temp / melt if melt > 0 else 0.0
+            if ratio >= p["danger_ratio"]:
+                s.status = "danger"
+            elif ratio >= p["warning_ratio"]:
+                s.status = "warning"
+            else:
+                s.status = "normal"
 
+    # ---------- 推进 ----------
     def advance(self, dt_total: float) -> None:
         if dt_total <= 0:
             return
@@ -243,7 +345,9 @@ class SimulationEngine:
         for _ in range(n):
             if self.state.melted:
                 break
-            self._substep(dt)
+            self._neutron_tick()
+            self._heat_tick()
+            self._update_state()
 
 
 def _clamp(v: float, lo: float, hi: float) -> float:

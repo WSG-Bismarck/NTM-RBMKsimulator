@@ -33,6 +33,14 @@ class Cell:
     flux: float = 0.0
     steam: float = 0.0
     water: float = 100.0
+    # ---- 中子逐格状态（运行时）----
+    flux_q: float = 0.0
+    flux_ratio: float = 0.0
+    last_flux_q: float = 0.0
+    last_flux_ratio: float = 0.0
+    has_rod: bool = False
+    core_heat: float = 20.0              # 燃料芯温度
+    hull_heat: float = 20.0              # 燃料壳温度
 
     @property
     def fuel_type(self) -> Optional[FuelType]:
