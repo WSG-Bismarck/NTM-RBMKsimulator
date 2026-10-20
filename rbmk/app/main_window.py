@@ -377,6 +377,15 @@ class MainWindow:
             om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
                          highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
             om.pack(fill="x")
+        elif beh == Behavior.HEATER:
+            tk.Label(p, text="流体类型", bg=theme.SURFACE, fg=theme.MUTED,
+                     font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(2, 2))
+            hvar = tk.StringVar(value=HEAT_FLUIDS.get(cell.heater_fluid, HEAT_FLUIDS["COOLANT"]).name_cn)
+            om = tk.OptionMenu(p, hvar, *[hf.name_cn for hf in HEAT_FLUIDS.values()],
+                               command=lambda v: self._set_heater_fluid(cell, v))
+            om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
+                         highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
+            om.pack(fill="x")
 
         self._prop_row("柱温", "temp")
         if beh == Behavior.FUEL:
@@ -401,14 +410,6 @@ class MainWindow:
         if beh == Behavior.BOILER:
             self._prop_row("每刻蒸汽产生量", "steam")
         if beh == Behavior.HEATER:
-            tk.Label(p, text="流体类型", bg=theme.SURFACE, fg=theme.MUTED,
-                     font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(6, 2))
-            hvar = tk.StringVar(value=HEAT_FLUIDS.get(cell.heater_fluid, HEAT_FLUIDS["COOLANT"]).name_cn)
-            om = tk.OptionMenu(p, hvar, *[hf.name_cn for hf in HEAT_FLUIDS.values()],
-                               command=lambda v: self._set_heater_fluid(cell, v))
-            om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
-                         highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
-            om.pack(fill="x")
             self._prop_row("每刻加热流体产量", "heater")
             self._prop_row("每刻热量产出", "heater_heat")
         self._refresh_prop_values()

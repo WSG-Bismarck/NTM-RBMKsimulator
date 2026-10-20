@@ -123,3 +123,13 @@ def test_fuel_diffusion_values_from_jar():
     assert FUELS["rbmk_fuel_ra226be"].diffusion == 0.5      # 镭226-铍中子源
     assert FUELS["rbmk_fuel_po210be"].diffusion == 0.05     # 钋210-铍中子源
     assert FUELS["rbmk_fuel_empty"].diffusion == 0.0
+
+
+def test_control_rod_defaults_to_vacant_group():
+    """新放置的控制棒默认控制组为「空置」。"""
+    from rbmk.model.components import ComponentType
+    m = ReactorModel(3, 3)
+    rod = m.place(1, 1, ComponentType.RBMK_CONTROL)
+    assert rod.group is None
+    m.group_insertion["RED"] = 0.0
+    assert m.effective_insertion(rod) == m.global_insertion

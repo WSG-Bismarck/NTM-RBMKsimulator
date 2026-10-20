@@ -24,7 +24,7 @@ FUEL_TYPES = FUEL_COMPONENTS
 class Cell:
     comp: ComponentType
     fuel: Optional[str] = None          # 燃料 key（燃料类柱子）
-    group: Optional[ControlGroup] = ControlGroup.RED   # None = 空置（不受分组控制）
+    group: Optional[ControlGroup] = None               # None = 空置（默认，不受分组控制）
     insertion: Optional[float] = None   # 单根插入深度 0..100；None=用分组/全局
     burnup: float = 0.0                 # 0..1
     xenon: float = 0.0                  # 0..100（与模组一致）
