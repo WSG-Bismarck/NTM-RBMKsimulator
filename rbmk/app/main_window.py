@@ -467,6 +467,24 @@ class MainWindow:
         tk.Label(p, text=f"燃料棒 {self.model.fuel_count()} 根", bg=theme.SURFACE,
                  fg=theme.INK, font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(10, 0))
 
+        # 一键统一所有蒸汽管道的蒸汽类型
+        tk.Label(p, text="全部蒸汽管道蒸汽类型", bg=theme.SURFACE, fg=theme.MUTED,
+                 font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(10, 2))
+        types = {cell.steam_type for _, _, cell in self.model.iter_cells()
+                 if behavior_of(cell.comp) == Behavior.BOILER}
+        if len(types) == 1:
+            cur = STEAM_TYPES.get(next(iter(types)), STEAM_TYPES["STEAM"]).name_cn
+        elif types:
+            cur = "多种（选择以统一）"
+        else:
+            cur = STEAM_TYPES["STEAM"].name_cn
+        svar = tk.StringVar(value=cur)
+        om = tk.OptionMenu(p, svar, *[st.name_cn for st in STEAM_TYPES.values()],
+                           command=self._set_all_steam_types)
+        om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
+                     highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
+        om.pack(fill="x")
+
     def _render_control(self):
         p = self.panel
         self._lbl_global = tk.Label(p, text=f"全局插入深度 {self.model.global_insertion:.0f}%",
@@ -476,15 +494,7 @@ class MainWindow:
                       bg=theme.SURFACE, fg=theme.INK, troughcolor=theme.BORDER,
                       highlightthickness=0, command=self._set_global)
         sc.set(self.model.global_insertion)
-        sc.pack(fill="x", pady=(0, 8))
-        self._lbl_coolant = tk.Label(p, text=f"冷却水流量 {self.model.coolant_flow:.0f}%",
-                 bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL, anchor="w")
-        self._lbl_coolant.pack(fill="x")
-        sc2 = tk.Scale(p, from_=0, to=100, orient="horizontal", showvalue=False,
-                       bg=theme.SURFACE, fg=theme.INK, troughcolor=theme.BORDER,
-                       highlightthickness=0, command=self._set_coolant)
-        sc2.set(self.model.coolant_flow)
-        sc2.pack(fill="x", pady=(0, 10))
+        sc.pack(fill="x", pady=(0, 10))
         tk.Label(p, text="分组插入深度（拖动即覆盖该组）", bg=theme.SURFACE,
                  fg=theme.MUTED, font=theme.FONT_SMALL, anchor="w").pack(fill="x")
         for g in ControlGroup:
@@ -558,10 +568,14 @@ class MainWindow:
         if getattr(self, "_lbl_global", None) is not None:
             self._lbl_global.configure(text=f"全局插入深度 {self.model.global_insertion:.0f}%")
 
-    def _set_coolant(self, v):
-        self.model.coolant_flow = float(v)
-        if getattr(self, "_lbl_coolant", None) is not None:
-            self._lbl_coolant.configure(text=f"冷却水流量 {self.model.coolant_flow:.0f}%")
+    def _set_all_steam_types(self, name):
+        for st in STEAM_TYPES.values():
+            if st.name_cn == name:
+                for _, _, cell in self.model.iter_cells():
+                    if behavior_of(cell.comp) == Behavior.BOILER:
+                        cell.steam_type = st.key
+                break
+        self.render_panel()
 
     def _set_group_val(self, group, v):
         self.model.group_insertion[group.value] = float(v)

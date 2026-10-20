@@ -89,17 +89,14 @@ def test_simulation_advances_when_running():
 
 
 def test_control_slider_does_not_destroy_panel():
-    """回归：拖动全局/冷却滑块不应重建面板导致控件消失。"""
+    """回归：拖动全局插入深度滑块不应重建面板导致控件消失。"""
     win, root = _fresh()
     try:
         win.set_tab("control")
         win.render_panel()
         win._set_global(30)
-        win._set_coolant(80)
         assert win.model.global_insertion == 30
-        assert win.model.coolant_flow == 80
         assert win._lbl_global.winfo_exists()
-        assert win._lbl_coolant.winfo_exists()
         win.render_panel()  # 仍可正常重绘
     finally:
         root.destroy()
@@ -370,5 +367,45 @@ def test_boiler_prop_has_steam_type_selector():
                           ("超热蒸汽", "SUPERHOTSTEAM"), ("超浓密蒸汽", "ULTRAHOTSTEAM")):
             win._set_steam_type(cell, name)
             assert cell.steam_type == key
+    finally:
+        root.destroy()
+
+
+def test_control_panel_has_no_coolant_control():
+    """冷却水流量控制已移除。"""
+    win, root = _fresh()
+    try:
+        win.set_tab("control")
+        win.render_panel()
+        assert not hasattr(win, "_lbl_coolant")
+        assert not hasattr(win, "_set_coolant")
+    finally:
+        root.destroy()
+
+
+def test_overview_global_steam_type_selector():
+    """总览里可以一键切换所有蒸汽管道的蒸汽类型。"""
+    win, root = _fresh()
+    try:
+        win.model.place(2, 2, ComponentType.RBMK_BOILER, steam_type="STEAM")
+        win.model.place(2, 3, ComponentType.RBMK_BOILER, steam_type="HOTSTEAM")
+        win.set_tab("overview")
+        win.render_panel()
+
+        def texts(w):
+            out = []
+            for ch in w.winfo_children():
+                try:
+                    if "text" in ch.keys():
+                        out.append(ch.cget("text"))
+                except Exception:
+                    pass
+                out.extend(texts(ch))
+            return out
+
+        assert "全部蒸汽管道蒸汽类型" in texts(win.panel)
+        win._set_all_steam_types("超浓密蒸汽")
+        assert win.model.cell_at(2, 2).steam_type == "ULTRAHOTSTEAM"
+        assert win.model.cell_at(2, 3).steam_type == "ULTRAHOTSTEAM"
     finally:
         root.destroy()
