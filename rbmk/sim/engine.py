@@ -134,6 +134,7 @@ class SimulationEngine:
             cell.steam = 0.0
             cell.steam_rate = 0.0
             cell.heater_rate = 0.0
+            cell.heater_heat = 0.0
             cell.water = 100.0
             cell.xenon = 0.0
             cell.burnup = 0.0
@@ -323,6 +324,7 @@ class SimulationEngine:
             if behavior_of(cell.comp) != Behavior.HEATER:
                 continue
             cell.heater_rate = 0.0
+            cell.heater_heat = 0.0
             hf = HEAT_FLUIDS.get(cell.heater_fluid, HEAT_FLUIDS["COOLANT"])
             if cell.temp <= 50.0:
                 continue
@@ -340,6 +342,7 @@ class SimulationEngine:
                 ops = p["heater_tank"] / hf.amount_produced
                 produced = p["heater_tank"]
             cell.heater_rate = produced
+            cell.heater_heat = hf.heat_req * ops
             cell.temp -= hf.heat_req * ops / tu_per_degree * hf.eff
 
         # 熔毁判定（满足任一即熔毁）：

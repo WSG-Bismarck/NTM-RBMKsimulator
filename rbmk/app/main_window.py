@@ -398,6 +398,7 @@ class MainWindow:
                          highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
             om.pack(fill="x")
             self._prop_row("每刻加热流体产量", "heater")
+            self._prop_row("每刻热量产出", "heater_heat")
         self._refresh_prop_values()
 
     def _prop_row(self, label, key):
@@ -455,6 +456,7 @@ class MainWindow:
             vals["steam"] = f"{cell.steam_rate:.2f}/tick"
         if behavior_of(cell.comp) == Behavior.HEATER:
             vals["heater"] = f"{cell.heater_rate:.0f} mB/tick"
+            vals["heater_heat"] = f"{cell.heater_heat:.0f} TU/tick"
         for k, v in vals.items():
             if k in labels:
                 labels[k].configure(text=v)

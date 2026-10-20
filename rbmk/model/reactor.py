@@ -36,6 +36,7 @@ class Cell:
     steam_type: str = "STEAM"          # 蒸汽类型（STEAM/HOTSTEAM/SUPERHOTSTEAM/ULTRAHOTSTEAM）
     heater_fluid: str = "COOLANT"      # 流体加热器输入流体（默认冷却液）
     heater_rate: float = 0.0           # 每刻加热流体产量（mB/tick）
+    heater_heat: float = 0.0           # 每刻热量产出（TU/tick）
     water: float = 100.0
     # ---- 中子逐格状态（运行时）----
     flux_q: float = 0.0
