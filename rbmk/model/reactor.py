@@ -34,7 +34,7 @@ class Cell:
     steam: float = 0.0
     steam_rate: float = 0.0            # 每 tick 产汽量
     steam_type: str = "STEAM"          # 蒸汽类型（STEAM/HOTSTEAM/SUPERHOTSTEAM/ULTRAHOTSTEAM）
-    heater_fluid: str = "WATER"        # 流体加热器输入流体
+    heater_fluid: str = "COOLANT"      # 流体加热器输入流体（默认冷却液）
     heater_rate: float = 0.0           # 每刻加热流体产量（mB/tick）
     water: float = 100.0
     # ---- 中子逐格状态（运行时）----
@@ -74,7 +74,7 @@ class Cell:
             xenon=float(d.get("xenon", 0.0)),
             temp=float(d.get("temp", 25.0)),
             steam_type=d.get("steam_type", "STEAM"),
-            heater_fluid=d.get("heater_fluid", "WATER"),
+            heater_fluid=d.get("heater_fluid", "COOLANT"),
         )
 
 

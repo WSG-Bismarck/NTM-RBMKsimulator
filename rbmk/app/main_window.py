@@ -391,7 +391,7 @@ class MainWindow:
         if beh == Behavior.HEATER:
             tk.Label(p, text="流体类型", bg=theme.SURFACE, fg=theme.MUTED,
                      font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(6, 2))
-            hvar = tk.StringVar(value=HEAT_FLUIDS.get(cell.heater_fluid, HEAT_FLUIDS["WATER"]).name_cn)
+            hvar = tk.StringVar(value=HEAT_FLUIDS.get(cell.heater_fluid, HEAT_FLUIDS["COOLANT"]).name_cn)
             om = tk.OptionMenu(p, hvar, *[hf.name_cn for hf in HEAT_FLUIDS.values()],
                                command=lambda v: self._set_heater_fluid(cell, v))
             om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
@@ -499,6 +499,24 @@ class MainWindow:
                      highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
         om.pack(fill="x")
 
+        # 一键统一所有流体加热器的流体类型
+        tk.Label(p, text="全部流体加热器流体类型", bg=theme.SURFACE, fg=theme.MUTED,
+                 font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(10, 2))
+        htypes = {cell.heater_fluid for _, _, cell in self.model.iter_cells()
+                  if behavior_of(cell.comp) == Behavior.HEATER}
+        if len(htypes) == 1:
+            hcur = HEAT_FLUIDS.get(next(iter(htypes)), HEAT_FLUIDS["COOLANT"]).name_cn
+        elif htypes:
+            hcur = "多种（选择以统一）"
+        else:
+            hcur = HEAT_FLUIDS["COOLANT"].name_cn
+        hvar = tk.StringVar(value=hcur)
+        hom = tk.OptionMenu(p, hvar, *[hf.name_cn for hf in HEAT_FLUIDS.values()],
+                            command=self._set_all_heater_fluids)
+        hom.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
+                      highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
+        hom.pack(fill="x")
+
     def _render_control(self):
         p = self.panel
         self._lbl_global = tk.Label(p, text=f"全局插入深度 {self.model.global_insertion:.0f}%",
@@ -595,6 +613,15 @@ class MainWindow:
                 for _, _, cell in self.model.iter_cells():
                     if behavior_of(cell.comp) == Behavior.BOILER:
                         cell.steam_type = st.key
+                break
+        self.render_panel()
+
+    def _set_all_heater_fluids(self, name):
+        for hf in HEAT_FLUIDS.values():
+            if hf.name_cn == name:
+                for _, _, cell in self.model.iter_cells():
+                    if behavior_of(cell.comp) == Behavior.HEATER:
+                        cell.heater_fluid = hf.key
                 break
         self.render_panel()
 

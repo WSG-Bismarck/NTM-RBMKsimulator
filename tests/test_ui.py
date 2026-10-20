@@ -474,3 +474,31 @@ def test_heater_prop_has_fluid_and_output_controls():
         assert "heater" in win._prop_labels
     finally:
         root.destroy()
+
+
+def test_overview_global_heater_fluid_selector():
+    """总览里可以一键切换所有流体加热器的流体类型。"""
+    win, root = _fresh()
+    try:
+        win.model.place(2, 2, ComponentType.RBMK_HEATER, heater_fluid="WATER")
+        win.model.place(2, 3, ComponentType.RBMK_HEATER, heater_fluid="OIL")
+        win.set_tab("overview")
+        win.render_panel()
+
+        def texts(w):
+            out = []
+            for ch in w.winfo_children():
+                try:
+                    if "text" in ch.keys():
+                        out.append(ch.cget("text"))
+                except Exception:
+                    pass
+                out.extend(texts(ch))
+            return out
+
+        assert "全部流体加热器流体类型" in texts(win.panel)
+        win._set_all_heater_fluids("血")
+        assert win.model.cell_at(2, 2).heater_fluid == "BLOOD"
+        assert win.model.cell_at(2, 3).heater_fluid == "BLOOD"
+    finally:
+        root.destroy()

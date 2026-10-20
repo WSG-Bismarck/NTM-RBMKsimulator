@@ -346,6 +346,7 @@ def test_heater_water_produces_steam():
     m = ReactorModel(5, 5)
     h = m.place(2, 2, HEATER)
     e = SimulationEngine(m)
+    h.heater_fluid = "WATER"
     h.temp = 400.0
     e._heat_tick()
     # 水：eff=0.25 → 每 tick 只带走 0.25 × tempRange 的热量
@@ -378,3 +379,9 @@ def test_heater_oil_rate_and_heat_removal():
     assert abs(h.heater_rate - 29500.0) < 1e-6
     # 热移除 = 10*29500/2000 = 147.5 → 柱温降到 350
     assert abs(h.temp - 350.0) < 1e-6
+
+
+def test_heater_default_fluid_is_coolant():
+    m = ReactorModel(5, 5)
+    h = m.place(2, 2, HEATER)
+    assert h.heater_fluid == "COOLANT"

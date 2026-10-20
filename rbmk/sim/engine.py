@@ -317,7 +317,7 @@ class SimulationEngine:
             if behavior_of(cell.comp) != Behavior.HEATER:
                 continue
             cell.heater_rate = 0.0
-            hf = HEAT_FLUIDS.get(cell.heater_fluid, HEAT_FLUIDS["WATER"])
+            hf = HEAT_FLUIDS.get(cell.heater_fluid, HEAT_FLUIDS["COOLANT"])
             if cell.temp <= 50.0:
                 continue
             temp_range = cell.temp - hf.out_temp
