@@ -141,3 +141,31 @@ def test_grid_zoom_and_pan():
         assert (ox1 - ox0, oy1 - oy0) == (30, 20)
     finally:
         root.destroy()
+
+
+def test_prop_panel_shows_component_parameters():
+    win, root = _fresh()
+    try:
+        win.model.place(3, 3, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
+        win.on_select((3, 3))
+        assert win._prop_labels
+        for key in ("temp", "core", "hull", "flux", "fast", "slow", "ratio", "outflux"):
+            assert key in win._prop_labels
+        assert "°C" in win._prop_labels["temp"].cget("text")
+        assert win._prop_labels["fast"].cget("text") != "—"
+        assert win._prop_labels["slow"].cget("text") != "—"
+    finally:
+        root.destroy()
+
+
+def test_prop_panel_control_and_boiler_fields():
+    win, root = _fresh()
+    try:
+        win.model.place(2, 2, ComponentType.RBMK_CONTROL)
+        win.model.place(2, 3, ComponentType.RBMK_BOILER)
+        win.on_select((2, 2))
+        assert "level" in win._prop_labels
+        win.on_select((2, 3))
+        assert "steam" in win._prop_labels
+    finally:
+        root.destroy()

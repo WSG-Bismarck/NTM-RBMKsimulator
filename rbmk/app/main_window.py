@@ -9,14 +9,15 @@ from rbmk.app.chart_panel import ChartPanel
 from rbmk.app.grid_editor import GridEditor
 from rbmk.model import save_load
 from rbmk.model.components import (
-    AUX_COMPONENTS,
     COMPONENT_INFO,
     CONTROL_GROUP_COLORS,
     CONTROL_GROUP_NAMES,
     CORE_COMPONENTS,
     FUELS,
+    Behavior,
     ComponentType,
     ControlGroup,
+    behavior_of,
 )
 from rbmk.model.reactor import CONTROL_TYPES, FUEL_TYPES, ReactorModel
 from rbmk.sim.engine import SimulationEngine
@@ -248,6 +249,8 @@ class MainWindow:
         self._refresh_state()
         if self.tab == "risk":
             self.render_panel()
+        elif self.tab == "prop":
+            self._refresh_prop_values()
         self.root.after(100, self._tick)
 
     def _refresh_state(self):
@@ -289,6 +292,7 @@ class MainWindow:
 
     def _render_prop(self):
         p = self.panel
+        self._prop_labels = {}
         if not self.selected_cell or self.model.cell_at(*self.selected_cell) is None:
             tk.Label(p, text="未选中任何柱子。\n点击网格里的柱子查看属性。",
                      bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL,
@@ -297,46 +301,122 @@ class MainWindow:
         r, c = self.selected_cell
         cell = self.model.cell_at(r, c)
         name, color = COMPONENT_INFO[cell.comp]
-        tk.Label(p, text=f"第 {r+1} 行 · 第 {c+1} 列", bg=theme.SURFACE, fg=theme.MUTED,
-                 font=theme.FONT_SMALL, anchor="w").pack(fill="x")
-        row = tk.Frame(p, bg=theme.SURFACE)
-        row.pack(fill="x", pady=(4, 10))
-        tk.Frame(row, bg=color, width=12, height=12).pack(side="left", padx=(0, 6))
-        tk.Label(row, text=name, bg=theme.SURFACE, fg=theme.INK, font=theme.FONT_BOLD).pack(side="left")
+        beh = behavior_of(cell.comp)
 
-        if cell.comp in FUEL_TYPES:
-            tk.Label(p, text="燃料类型", bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL,
-                     anchor="w").pack(fill="x", pady=(4, 2))
+        head = tk.Frame(p, bg=theme.SURFACE)
+        head.pack(fill="x", pady=(0, 6))
+        tk.Frame(head, bg=color, width=12, height=12).pack(side="left", padx=(0, 6))
+        tk.Label(head, text=name, bg=theme.SURFACE, fg=theme.INK,
+                 font=theme.FONT_BOLD).pack(side="left")
+        tk.Label(head, text=f"{r+1}行 {c+1}列", bg=theme.SURFACE, fg=theme.MUTED,
+                 font=(theme.FAMILY, 8)).pack(side="right")
+
+        if beh == Behavior.FUEL:
+            tk.Label(p, text="燃料类型", bg=theme.SURFACE, fg=theme.MUTED,
+                     font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(2, 2))
             var = tk.StringVar(value=FUELS[cell.fuel].name_cn if cell.fuel else "空燃料棒")
             om = tk.OptionMenu(p, var, *[f.name_cn for f in FUELS.values()],
                                command=lambda v: self._set_fuel(cell, v))
             om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
                          highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
             om.pack(fill="x")
-            tk.Label(p, text=f"燃耗 {cell.burnup*100:.2f}%   氙毒 {cell.xenon:.1f}%",
-                     bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL,
-                     anchor="w").pack(fill="x", pady=(8, 0))
-        elif cell.comp in CONTROL_TYPES:
-            tk.Label(p, text="控制组", bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL,
-                     anchor="w").pack(fill="x", pady=(4, 2))
+        elif beh == Behavior.CONTROL:
+            tk.Label(p, text="控制组", bg=theme.SURFACE, fg=theme.MUTED,
+                     font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(2, 2))
             gvar = tk.StringVar(value=CONTROL_GROUP_NAMES[cell.group])
             om = tk.OptionMenu(p, gvar, *[CONTROL_GROUP_NAMES[g] for g in ControlGroup],
                                command=lambda v: self._set_group(cell, v))
             om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
                          highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
             om.pack(fill="x")
-            tk.Label(p, text=f"单根插入深度 {self.model.effective_insertion(cell):.0f}%（拖动覆盖）",
-                     bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL,
-                     anchor="w").pack(fill="x", pady=(8, 2))
+            tk.Label(p, text="单根插入深度（拖动覆盖）", bg=theme.SURFACE, fg=theme.MUTED,
+                     font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(6, 2))
             sc = tk.Scale(p, from_=0, to=100, orient="horizontal", showvalue=False,
                           bg=theme.SURFACE, fg=theme.INK, troughcolor=theme.BORDER,
                           highlightthickness=0, command=lambda v: self._set_single(cell, v))
             sc.set(self.model.effective_insertion(cell))
             sc.pack(fill="x")
-        else:
-            tk.Label(p, text="该组件参与中子/热传递（模型说明见规格）。",
-                     bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL,
-                     justify="left", anchor="w").pack(fill="x", pady=8)
+
+        self._prop_row("柱温", "temp")
+        self._prop_row("芯温", "core")
+        self._prop_row("壳温", "hull")
+        self._prop_row("热功率", "heat")
+        self._prop_row("邻接数", "neighbors")
+        self._prop_row("被动冷却", "cooling")
+        self._prop_row("接收通量", "flux")
+        self._prop_row("快中子计数", "fast")
+        self._prop_row("慢中子计数", "slow")
+        self._prop_row("快中子占比", "ratio")
+        self._prop_row("本柱输出通量", "outflux")
+        if beh == Behavior.FUEL:
+            self._prop_row("燃耗", "burnup")
+            self._prop_row("氙毒", "xenon")
+            self._prop_row("剩余寿命", "life")
+            self._prop_row("熔点", "melt")
+            self._prop_row("燃烧函数", "function")
+            self._prop_row("反应性", "reactivity")
+            self._prop_row("中子类型", "ntype")
+        if beh == Behavior.CONTROL:
+            self._prop_row("有效 level", "level")
+        if beh == Behavior.BOILER:
+            self._prop_row("累计蒸汽", "steam")
+        self._refresh_prop_values()
+
+    def _prop_row(self, label, key):
+        row = tk.Frame(self.panel, bg=theme.SURFACE)
+        row.pack(fill="x", pady=1)
+        tk.Label(row, text=label, bg=theme.SURFACE, fg=theme.MUTED,
+                 font=(theme.FAMILY, 8), anchor="w").pack(side="left")
+        val = tk.Label(row, text="—", bg=theme.SURFACE, fg=theme.INK,
+                       font=(theme.FAMILY, 8, "bold"), anchor="e")
+        val.pack(side="right")
+        self._prop_labels[key] = val
+
+    def _refresh_prop_values(self):
+        labels = getattr(self, "_prop_labels", None)
+        if not labels or not self.selected_cell:
+            return
+        cell = self.model.cell_at(*self.selected_cell)
+        if cell is None:
+            return
+        r, c = self.selected_cell
+        fq = cell.flux_q
+        fast = fq * cell.flux_ratio
+        slow = fq * (1.0 - cell.flux_ratio)
+        n = sum(1 for dr, dc in ((0, 1), (1, 0), (0, -1), (-1, 0))
+                if self.model.cell_at(r + dr, c + dc) is not None)
+        cooling = 0.1 + (2.5 - 0.1) * ((4 - min(max(n, 0), 4)) / 4.0)
+        vals = {
+            "temp": f"{cell.temp:.1f} °C",
+            "core": f"{cell.core_heat:.1f} °C",
+            "hull": f"{cell.hull_heat:.1f} °C",
+            "heat": f"{cell.heat:.2f}",
+            "neighbors": str(n),
+            "cooling": f"{cooling:.2f}/tick",
+            "flux": f"{fq:.2f}",
+            "fast": f"{fast:.2f}",
+            "slow": f"{slow:.2f}",
+            "ratio": f"{cell.flux_ratio * 100:.1f}%",
+            "outflux": f"{cell.flux:.2f}",
+        }
+        ft = cell.fuel_type
+        if ft:
+            vals.update({
+                "burnup": f"{cell.burnup * 100:.3f}%",
+                "xenon": f"{cell.xenon:.2f}",
+                "life": f"{(1 - cell.burnup) * 100:.3f}%",
+                "melt": f"{ft.melting_point:.0f} °C",
+                "function": ft.function,
+                "reactivity": f"{ft.reactivity:g}（自 {ft.self_rate:g}）",
+                "ntype": f"{ft.n_type.value} / {ft.r_type.value}",
+            })
+        if behavior_of(cell.comp) == Behavior.CONTROL:
+            vals["level"] = f"{1.0 - self.model.effective_insertion(cell) / 100.0:.2f}"
+        if behavior_of(cell.comp) == Behavior.BOILER:
+            vals["steam"] = f"{cell.steam:.2f} MB"
+        for k, v in vals.items():
+            if k in labels:
+                labels[k].configure(text=v)
 
     def _render_overview(self):
         p = self.panel
