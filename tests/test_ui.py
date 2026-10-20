@@ -239,3 +239,21 @@ def test_reset_pauses_and_clears_state_keeping_layout():
         assert win.run_btn.cget("text") == "▶ 运行"
     finally:
         root.destroy()
+
+
+def test_prop_panel_hides_core_hull_for_non_fuel():
+    """非燃料通道不显示芯温/壳温，燃料通道仍显示。"""
+    win, root = _fresh()
+    try:
+        win.model.place(2, 2, ComponentType.RBMK_BOILER)
+        win.on_select((2, 2))
+        assert "core" not in win._prop_labels
+        assert "hull" not in win._prop_labels
+        assert "temp" in win._prop_labels
+
+        win.model.place(2, 3, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
+        win.on_select((2, 3))
+        assert "core" in win._prop_labels
+        assert "hull" in win._prop_labels
+    finally:
+        root.destroy()
