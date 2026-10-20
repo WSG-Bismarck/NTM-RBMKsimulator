@@ -291,3 +291,16 @@ def test_prop_panel_hides_burnup_for_fuel():
         assert "xenon" in win._prop_labels
     finally:
         root.destroy()
+
+
+def test_prop_panel_hides_reactivity_for_fuel():
+    """燃料通道不再显示反应性，保留燃烧函数与自发射率。"""
+    win, root = _fresh()
+    try:
+        win.model.place(2, 2, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
+        win.on_select((2, 2))
+        assert "reactivity" not in win._prop_labels
+        assert "function" in win._prop_labels
+        assert "selfrate" in win._prop_labels
+    finally:
+        root.destroy()

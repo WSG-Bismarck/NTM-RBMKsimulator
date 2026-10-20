@@ -368,7 +368,6 @@ class MainWindow:
             self._prop_row("剩余寿命", "life")
             self._prop_row("燃料熔点", "melt")
             self._prop_row("燃烧函数", "function")
-            self._prop_row("反应性", "reactivity")
             self._prop_row("自发射率", "selfrate")
             self._prop_row("中子类型", "ntype")
         if beh == Behavior.CONTROL:
@@ -422,7 +421,6 @@ class MainWindow:
                 "life": f"{(1 - cell.burnup) * 100:.3f}%",
                 "melt": f"{ft.melting_point:.0f} °C",
                 "function": ft.function,
-                "reactivity": f"{ft.reactivity:g}",
                 "selfrate": f"{ft.self_rate:g}/tick",
                 "ntype": f"{ft.n_type.value} / {ft.r_type.value}",
             })
