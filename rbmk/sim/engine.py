@@ -453,9 +453,9 @@ class SimulationEngine:
 
         total_flux = sum(cell.flux for _, _, cell in rods)
         total_heat = sum(cell.heat for _, _, cell in rods)
-        max_temp = max((cell.temp for _, _, cell in self.model.iter_cells()), default=AMBIENT)
+        max_temp = max((cell.shown_temp for _, _, cell in self.model.iter_cells()), default=AMBIENT)
         all_cells = [cell for _, _, cell in self.model.iter_cells()]
-        s.avg_temperature = (sum(c.temp for c in all_cells) / len(all_cells)) if all_cells else AMBIENT
+        s.avg_temperature = (sum(c.shown_temp for c in all_cells) / len(all_cells)) if all_cells else AMBIENT
         s.avg_flux = (total_flux / len(rods)) if rods else 0.0
 
         prev_temp = s.temperature

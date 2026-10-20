@@ -329,8 +329,8 @@ def test_avg_temperature_is_mean_and_avg_flux_is_per_rod():
     a = m.place(0, 0, MOD)
     b = m.place(4, 4, MOD)
     e = SimulationEngine(m)
-    a.temp = 100.0
-    b.temp = 300.0
+    a.temp = a.shown_temp = 100.0
+    b.temp = b.shown_temp = 300.0
     e._update_state()
     assert e.state.avg_temperature == 200.0
     assert e.state.avg_flux == 0.0
