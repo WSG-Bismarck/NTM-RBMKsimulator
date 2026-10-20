@@ -687,3 +687,29 @@ def test_components_use_mod_block_icons():
         assert has_icon_label
     finally:
         root.destroy()
+
+
+def test_console_view_reproduces_mod_gui_layout():
+    """控制台视图：热量条 (ceil((t-20)*10/maxHeat)) 与控制棒分组色竖线按模组坐标绘制。"""
+    from rbmk.app.console_view import ConsoleWindow, CELL, GRAPH_H, C_HEAT
+    from rbmk.model.components import ComponentType, ControlGroup
+    win, root = _fresh()
+    try:
+        m = win.model
+        m.place(1, 1, ComponentType.RBMK_ROD)
+        m.place(1, 2, ComponentType.RBMK_CONTROL)
+        m.cell_at(1, 1).shown_temp = 770.0          # h = ceil(750*10/1500) = 5
+        m.cell_at(1, 2).group = ControlGroup.RED
+        cw = ConsoleWindow(win)
+        img = cw._render().convert("RGB")
+        oy = GRAPH_H + 8
+        # 燃料柱热量条：左边缘红线自底向上 5 格
+        assert img.getpixel((1 * CELL, oy + 1 * CELL + 17)) == C_HEAT
+        # 上方 6~10 格不应有红线（热量条只有 5 格高）
+        assert img.getpixel((1 * CELL, oy + 1 * CELL + 2)) != C_HEAT
+        # 控制棒分组色（RED）竖线在单元格 x+3 / x+6
+        assert img.getpixel((2 * CELL + 6, oy + 1 * CELL + 10)) == (255, 0, 0)
+        assert img.getpixel((2 * CELL + 12, oy + 1 * CELL + 10)) == (255, 0, 0)
+        cw.destroy()
+    finally:
+        root.destroy()

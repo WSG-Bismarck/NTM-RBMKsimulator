@@ -288,3 +288,33 @@
 | 冷却器 | 参与被动冷却（模型层） |
 | 流体加热器 | 热源/工质加热（模型层） |
 | 结构柱 / 存储棒 | 无中子作用，仅传热 |
+
+## 反应堆控制台 GUI 显示逻辑（GUIRBMKConsole）
+
+阵列：15×15 柱，每格 10×10，起点 (86,11)；贴图 `assets/hbm/textures/gui/reactors/gui_rbmk_console.png`。
+
+每格绘制顺序：
+
+1. **图标**：`(ColumnType.offset, 172, 10, 10)`。offset：BLANK 0 / FUEL 10 / CONTROL 20 / CONTROL_AUTO 30 / BOILER 40 / MODERATOR 50 / ABSORBER 60 / REFLECTOR 70 / OUTGASSER 80 / FUEL_SIM 90 / STORAGE 110 / COOLER 120 / HEATEX 130。
+2. **热量条**：`h = min(ceil((heat-20)*10/maxHeat), 10)`，取贴图 `(0, 192-h, 10, h)`，画在格子底部。该区域在贴图里是左右两条红色边线（#A90000），所以表现为两侧红线随热量升高。
+3. **FUEL / FUEL_SIM**（需要 `c_heat`）：
+   - 壳温：`fh = min(ceil((c_heat-20)*8/c_maxHeat), 8)`，贴图 `(11, 191-fh, 2, fh)`，位置 `x+1`，橙色
+   - 浓缩度：`fe = min(ceil(enrichment*8), 8)`，`(14, 191-fe, 2, fe)`，`x+4`，绿色
+   - 氙毒：`fx = min(ceil(xenon*8/100), 8)`，`(17, 191-fx, 2, fx)`，`x+7`，紫色
+4. **BOILER**：水条 `fw = ceil(water*8/maxWater)`（`x+1`，3 宽，蓝色），蒸汽条 `fs = ceil(steam*8/maxSteam)`（`x+6`，3 宽，白色），蒸汽类型点 `(x+4, y+1/3/5/7, 2×2)`：蒸汽白、热蒸汽 `#FFEBEB`、超热 `#FFC3C3`、超浓密 `#FF8B8B`。
+5. **CONTROL**：`color = getShort("color")`，`color > -1` 时画 `(color*10, 202, 10, 10)` —— 实际是 `x+3` 与 `x+6` 两条竖线，颜色 RED `#FF0000` / YELLOW `#FFD800` / GREEN `#4CFF00` / BLUE `#0026FF` / PURPLE `#B200FF`。
+   **注意**：Java 的 `case CONTROL:` 没有 `break`，会穿透执行 CONTROL_AUTO 的插入条 —— 模组行为即如此。
+6. **CONTROL_AUTO**：`fr = 8 - ceil(level*8)`，`(24, 183, 2, fr)`，位置 `(x+4, y+1)`。
+7. **HEATEX**：进口流体条 `(131, 191-cc, 3, cc)`（`x+1`，青色 `#17B7C4`），出口流体条 `(136, 191-hc, 3, hc)`（`x+6`，洋红 `#AF1F54`）。
+8. **选中**：`(0, 192, 10, 10)` 白色描边。
+
+顶部另有中子通量折线（绿色 `#65FF00`），取 `fluxBuffer` 滚动的最大值/最小值做纵轴。
+
+模拟器复刻（`rbmk/app/console_view.py`，工具栏「控制台」，2 倍尺寸绘制）：
+
+- 图标、热量条、各类叠加条与模组坐标一致；`heat` 取 `cell.shown_temp`，`maxHeat = 1500`。
+- 燃料：`enrichment = 1 - burnup`，`c_heat = hull_heat`，`c_maxHeat = melting_point`，`xenon` 为 0..100。
+- 控制棒分组色取组件自身 `group`；插入深度：手动 = `effective_insertion/100`，自动 = `1 - cell.level`。
+- **蒸汽条固定为空**：模型不设蒸汽缓冲（产汽直接外送），水条用 `cell.water / 10000`。
+- 空白柱、空格子按模组 15×15 网格绘制。
+
