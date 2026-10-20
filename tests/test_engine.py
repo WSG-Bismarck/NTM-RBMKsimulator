@@ -776,3 +776,35 @@ def test_fuel_diffusion_controls_core_to_shell_transfer():
         FUELS["rbmk_fuel_flashlead"] = base
     assert out[0.1][1] > out[0.02][1] * 1.5     # 壳温明显更高
     assert out[0.1][0] < out[0.02][0]           # 芯温更低
+
+
+def test_provide_heat_normal_branch_matches_jar():
+    """provideHeat 普通分支：ret = (壳−柱)/2 × heatProvision(0.2)，壳降多少柱就升多少。"""
+    m = ReactorModel(3, 3)
+    rod = m.place(1, 1, ROD, fuel=HEU)          # HEU-235 不自燃、无外源通量 → out=0
+    e = SimulationEngine(m)
+    rod.core_heat = 100.0                        # 芯 < 壳，updateHeat 不动作
+    rod.hull_heat = 1000.0
+    rod.temp = 200.0
+    e._neutron_tick()
+    assert abs(rod.hull_heat - 920.0) < 1e-9     # 1000 − (1000−200)/2×0.2 = 920
+    assert abs(rod.temp - 280.0) < 1e-9          # 200 + 80
+    assert abs(rod.core_heat - 100.0) < 1e-9
+
+
+def test_provide_heat_over_melt_branch_averages_three():
+    """provideHeat 过热分支（壳温 > 燃料熔点）：芯/壳/柱三者取平均，不乘 heatProvision。"""
+    from rbmk.model.components import FUELS
+    ft = FUELS[HEU]
+    hull0 = ft.melting_point + 50.0
+    m = ReactorModel(3, 3)
+    rod = m.place(1, 1, ROD, fuel=HEU)
+    e = SimulationEngine(m)
+    rod.core_heat = 3000.0
+    rod.hull_heat = hull0
+    rod.temp = 200.0
+    e._neutron_tick()
+    avg = (200.0 + 3000.0 + hull0) / 3.0        # updateHeat 守恒，三者和不变
+    assert abs(rod.core_heat - avg) < 1e-9
+    assert abs(rod.hull_heat - avg) < 1e-9
+    assert abs(rod.temp - avg) < 1e-9
