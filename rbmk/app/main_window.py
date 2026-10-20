@@ -102,6 +102,7 @@ class MainWindow:
         tk.Frame(bar, bg=theme.BORDER, width=1).pack(side="left", fill="y", padx=8)
         self.run_btn = _btn(bar, "▶ 运行", self.toggle_run, "primary")
         self.run_btn.pack(side="left", pady=7)
+        _btn(bar, "重置", self.reset_simulation).pack(side="left", padx=(4, 0), pady=7)
         self.speed_btns = {}
         grp = tk.Frame(bar, bg=theme.SURFACE)
         grp.pack(side="right", padx=10)
@@ -239,6 +240,16 @@ class MainWindow:
         self.run_btn.configure(text="⏸ 暂停" if self.running else "▶ 运行",
                                bg=theme.DANGER if self.running else theme.ACCENT,
                                fg="#ffffff" if self.running else "#16120a")
+
+    def reset_simulation(self):
+        """暂停并重置反应堆状态，保留已摆放的组件。"""
+        self.running = False
+        self.run_btn.configure(text="▶ 运行", bg=theme.ACCENT, fg="#16120a")
+        self.engine.reset()
+        self.chart.reset()
+        self.grid_editor.redraw()
+        self._refresh_state()
+        self.render_panel()
 
     # ---------------- 循环 ----------------
     def _tick(self):

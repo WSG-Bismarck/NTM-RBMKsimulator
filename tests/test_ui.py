@@ -206,3 +206,36 @@ def test_ui_place_self_igniting_rod_starts():
         assert win.engine.state.power > 0
     finally:
         root.destroy()
+
+
+def test_reset_pauses_and_clears_state_keeping_layout():
+    win, root = _fresh()
+    try:
+        win.model.place(2, 2, ComponentType.RBMK_ROD, fuel="rbmk_fuel_po210be")
+        win.model.place(2, 3, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
+        win.on_model_changed()
+        win.set_speed(100)
+        win.toggle_run()
+        win._tick()
+        assert win.running
+        assert win.engine.state.time > 0
+        before_fuel = win.model.fuel_count()
+        before_cells = sum(1 for _ in win.model.iter_cells())
+
+        win.reset_simulation()
+
+        assert win.running is False
+        assert win.engine.state.time == 0
+        assert win.engine.state.power == 0
+        assert win.engine.state.total_energy == 0
+        assert win.engine.state.temperature == 20.0
+        # 组件必须保留
+        assert win.model.fuel_count() == before_fuel
+        assert sum(1 for _ in win.model.iter_cells()) == before_cells
+        c = win.model.cell_at(2, 3)
+        assert c is not None
+        assert c.burnup == 0.0
+        assert c.temp == 20.0
+        assert win.run_btn.cget("text") == "▶ 运行"
+    finally:
+        root.destroy()

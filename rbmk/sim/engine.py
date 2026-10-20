@@ -128,6 +128,7 @@ class SimulationEngine:
             cell.steam = 0.0
             cell.water = 100.0
             cell.xenon = 0.0
+            cell.burnup = 0.0
             cell.flux_q = 0.0
             cell.flux_ratio = 0.0
             cell.last_flux_q = 0.0
