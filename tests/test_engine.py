@@ -981,3 +981,28 @@ def test_reasim_mode_still_runs_steam_pipe_normal_conversion():
     e2._begin_tick()
     e2._heat_tick()
     assert abs(b2.steam_rate - b.steam_rate) < 1e-9
+
+
+def test_reasim_steam_rate_reported_for_each_component():
+    """ReaSim 模式下每根柱单独记录 ReaSim 段产汽量（供属性面板显示）。"""
+    m = ReactorModel(3, 3)
+    blank = m.place(1, 1, ComponentType.RBMK_BLANK)
+    m.reasim_boilers = True
+    e = SimulationEngine(m)
+    blank.temp = 500.0
+    e._begin_tick()
+    e._heat_tick()
+    # ReaSim 段在 moveHeat + 冷却之后执行：柱温 500 − 2.5 = 497.5
+    assert abs(blank.reasim_steam_rate - 198.0) < 1e-6      # floor(397.5/0.1 × 0.05)
+    assert abs(blank.reasim_steam_rate - blank.steam_rate) < 1e-9   # 非锅炉柱只有 ReaSim 段
+
+
+def test_reasim_steam_rate_is_zero_in_normal_mode():
+    m = ReactorModel(3, 3)
+    b = m.place(1, 1, BOIL)
+    e = SimulationEngine(m)
+    b.temp = 500.0
+    e._begin_tick()
+    e._heat_tick()
+    assert b.reasim_steam_rate == 0.0
+    assert abs(b.steam_rate - 400000.0) < 1e-6

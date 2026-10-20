@@ -40,7 +40,8 @@ class Cell:
     heat: float = 0.0
     flux: float = 0.0
     steam: float = 0.0
-    steam_rate: float = 0.0            # 每 tick 产汽量
+    steam_rate: float = 0.0            # 每 tick 产汽量（普通 + ReaSim 合计）
+    reasim_steam_rate: float = 0.0     # 每 tick ReaSim 锅炉段的产汽量
     cooler_rate: float = 0.0           # 冷却器每 tick 消耗的冷四氟甲烷（mB/tick）
     cooler_cells: int = 0              # 冷却器 5×5 范围内作用的柱数
     shown_temp: float = 25.0           # 模组该柱自己 tick 结束时的温度快照（控制台显示值）

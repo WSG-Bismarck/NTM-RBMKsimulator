@@ -262,6 +262,7 @@ class MainWindow:
         """切换普通锅炉 / ReaSim 锅炉模式。"""
         self.model.reasim_boilers = not self.model.reasim_boilers
         self._sync_boiler_btn()
+        self.render_panel()
 
     def _sync_boiler_btn(self):
         if getattr(self, "boiler_btn", None) is not None:
@@ -412,6 +413,8 @@ class MainWindow:
             self._prop_row("当前插入度" if auto else "有效 level", "level")
         if beh == Behavior.BOILER:
             self._prop_row("每刻蒸汽产生量", "steam")
+        if self.model.reasim_boilers:
+            self._prop_row("每刻 ReaSim 蒸汽产量", "reasim_steam")
         if beh == Behavior.COOLER:
             self._prop_row("每刻消耗冷四氟甲烷", "cooler_use")
             self._prop_row("作用柱数（5×5）", "cooler_cells")
@@ -474,9 +477,13 @@ class MainWindow:
                 vals["level"] = f"{1.0 - self.model.effective_insertion(cell) / 100.0:.2f}"
         if behavior_of(cell.comp) == Behavior.BOILER:
             vals["steam"] = f"{cell.steam_rate:.0f} mB/tick"
+        if self.model.reasim_boilers:
+            vals["reasim_steam"] = f"{cell.reasim_steam_rate:.0f} mB/tick"
         if behavior_of(cell.comp) == Behavior.COOLER:
             vals["cooler_use"] = f"{cell.cooler_rate:.0f} mB/tick"
             vals["cooler_cells"] = str(cell.cooler_cells)
+        if self.model.reasim_boilers:
+            vals["reasim_steam"] = f"{cell.reasim_steam_rate:.0f} mB/tick"
         if behavior_of(cell.comp) == Behavior.COOLER:
             vals["cooler_use"] = f"{cell.cooler_rate:.0f} mB/tick"
             vals["cooler_cells"] = str(cell.cooler_cells)

@@ -639,3 +639,27 @@ def test_cooler_prop_shows_cold_perfluoromethyl_per_tick():
         assert win._prop_labels["cooler_cells"].cget("text") == "1"
     finally:
         root.destroy()
+
+
+def test_reasim_mode_shows_component_reasim_steam_row():
+    """切换到 ReaSim 锅炉模式后，属性面板出现「每刻 ReaSim 蒸汽产量」。"""
+    from rbmk.model.components import ComponentType
+    win, root = _fresh()
+    try:
+        win.select_tool(ComponentType.RBMK_BLANK.value)
+        win.grid_editor._paint((2, 2))
+        win.on_select((2, 2))
+        assert "reasim_steam" not in win._prop_labels
+        win.toggle_boiler_mode()
+        assert "reasim_steam" in win._prop_labels
+        cell = win.model.cell_at(2, 2)
+        cell.temp = 500.0
+        win.set_speed(1)
+        win.toggle_run()
+        win._tick()
+        win.toggle_run()
+        assert win._prop_labels["reasim_steam"].cget("text").endswith("mB/tick")
+        win.toggle_boiler_mode()
+        assert "reasim_steam" not in win._prop_labels
+    finally:
+        root.destroy()

@@ -377,6 +377,7 @@ class SimulationEngine:
             return 0.0
         cell.steam += made
         cell.steam_rate += made
+        cell.reasim_steam_rate += made
         cell.temp -= made * hpm
         return made
 
@@ -458,6 +459,7 @@ class SimulationEngine:
         steam = 0.0
         for _, _, cell in cells:
             cell.steam_rate = 0.0
+            cell.reasim_steam_rate = 0.0
             cell.shown_temp = cell.temp
 
         for r, c, cell in cells:
