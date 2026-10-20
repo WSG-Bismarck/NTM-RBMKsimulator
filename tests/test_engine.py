@@ -348,8 +348,9 @@ def test_heater_water_produces_steam():
     e = SimulationEngine(m)
     h.temp = 400.0
     e._heat_tick()
-    assert abs(h.heater_rate - 100.0) < 1e-9   # 水：目标 100 mB/tick
-    assert h.temp < 400.0
+    # 水：eff=0.25 → 每 tick 只带走 0.25 × tempRange 的热量
+    assert h.heater_rate > 0.0
+    assert abs(h.temp - (400.0 - 2.5 - 0.25 * 297.5)) < 1e-6
 
 
 def test_heater_requires_heat_above_output_temperature():
@@ -371,9 +372,9 @@ def test_heater_oil_rate_and_heat_removal():
     h = m.place(2, 2, HEATER)
     e = SimulationEngine(m)
     h.temp = 500.0
-    h.heater_fluid = "OIL"                     # 原油：每次 1→1，heatReq 10
-    h.heater_output = 200.0
+    h.heater_fluid = "OIL"                     # 原油：1→1，heatReq 10，产出温度 350
     e._heat_tick()
-    assert abs(h.heater_rate - 200.0) < 1e-9
-    # 热移除 = 10 * 200 / 2000 = 1.0
-    assert abs((500.0 - h.temp) - (2.5 + 1.0)) < 1e-9
+    # 冷却后 497.5；tempRange=147.5 → ops=147.5*2000/10=29500
+    assert abs(h.heater_rate - 29500.0) < 1e-6
+    # 热移除 = 10*29500/2000 = 147.5 → 柱温降到 350
+    assert abs(h.temp - 350.0) < 1e-6

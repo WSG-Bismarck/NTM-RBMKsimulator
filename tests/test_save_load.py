@@ -77,11 +77,10 @@ def test_steam_type_roundtrip(tmp_path):
 
 
 def test_heater_fields_roundtrip(tmp_path):
-    """流体加热器的流体类型与产量随设计文件保存/导入。"""
+    """流体加热器的流体类型随设计文件保存/导入。"""
     m = ReactorModel(rows=5, cols=5)
-    m.place(2, 2, ComponentType.RBMK_HEATER, heater_fluid="BLOOD", heater_output=250.0)
+    m.place(2, 2, ComponentType.RBMK_HEATER, heater_fluid="BLOOD")
     p = tmp_path / "heater.json"
     save_load.save(m, p)
     c = save_load.load(p).cell_at(2, 2)
     assert c.heater_fluid == "BLOOD"
-    assert c.heater_output == 250.0

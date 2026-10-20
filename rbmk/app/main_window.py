@@ -397,15 +397,7 @@ class MainWindow:
             om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
                          highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
             om.pack(fill="x")
-            self._lbl_heater = tk.Label(p, text=f"每刻加热流体产量 {cell.heater_output:.0f} mB/tick",
-                     bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL, anchor="w")
-            self._lbl_heater.pack(fill="x", pady=(6, 2))
-            hsc = tk.Scale(p, from_=1, to=1000, orient="horizontal", showvalue=False,
-                           bg=theme.SURFACE, fg=theme.INK, troughcolor=theme.BORDER,
-                           highlightthickness=0, command=lambda v: self._set_heater_output(cell, v))
-            hsc.set(cell.heater_output)
-            hsc.pack(fill="x")
-            self._prop_row("本刻实际产量", "heater")
+            self._prop_row("每刻加热流体产量", "heater")
         self._refresh_prop_values()
 
     def _prop_row(self, label, key):
@@ -588,11 +580,6 @@ class MainWindow:
                 cell.heater_fluid = hf.key
                 break
         self._refresh_prop_values()
-
-    def _set_heater_output(self, cell, v):
-        cell.heater_output = float(v)
-        if getattr(self, "_lbl_heater", None) is not None:
-            self._lbl_heater.configure(text=f"每刻加热流体产量 {cell.heater_output:.0f} mB/tick")
 
     def _set_single(self, cell, v):
         cell.insertion = float(v)

@@ -195,9 +195,9 @@
 | 血 BLOOD | 热的血 BLOOD_HOT | 1 | 1 | 500 | 666 | 1.0 |
 
 - 每 tick：`tempRange = heat - 产出温度`；`TU_PER_DEGREE = 2000 × eff`；
-  `ops = min(目标产量 / amountProduced, tempRange × TU_PER_DEGREE / heatReq)`；
-  `heat -= heatReq × ops / TU_PER_DEGREE × eff`。
-- 软件把进/出罐视为无限直连，产量上限由属性面板「每刻加热流体产量」控制。
+  `ops = tempRange × TU_PER_DEGREE / heatReq`；
+  `heat -= heatReq × ops / TU_PER_DEGREE × eff`（化简为 `heatReq × ops / 2000`）。
+- 软件把进/出罐视为无限直连，产量完全由柱温与公式决定；属性面板只显示「每刻加热流体产量」，不再提供手动上限。
 
 ### 7.4 各组件的模拟作用（v3）
 | 组件 | 作用 |

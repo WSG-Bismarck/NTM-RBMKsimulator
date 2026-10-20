@@ -465,13 +465,12 @@ def test_heater_prop_has_fluid_and_output_controls():
 
         t = texts(win.panel)
         assert "流体类型" in t
-        assert any("每刻加热流体产量" in s for s in t)
+        assert "每刻加热流体产量" in t
 
         cell = win.model.cell_at(2, 2)
         win._set_heater_fluid(cell, "血")
         assert cell.heater_fluid == "BLOOD"
-        win._set_heater_output(cell, 250)
-        assert cell.heater_output == 250.0
+        assert not hasattr(win, "_set_heater_output")
         assert "heater" in win._prop_labels
     finally:
         root.destroy()

@@ -324,9 +324,8 @@ class SimulationEngine:
             if temp_range <= 0.0 or hf.eff <= 0.0:
                 continue
             tu_per_degree = 2000.0 * hf.eff
-            # 模组：ops = min(输入量, 输出空间, 温度允许量)；这里用水池无限、输出直连
-            ops = min(cell.heater_output / hf.amount_produced,
-                      temp_range * tu_per_degree / hf.heat_req)
+            # 模组：ops = min(输入量, 输出空间, 温度允许量)；进/出罐视为无限直连
+            ops = temp_range * tu_per_degree / hf.heat_req
             if ops <= 0.0:
                 continue
             cell.heater_rate = ops * hf.amount_produced
