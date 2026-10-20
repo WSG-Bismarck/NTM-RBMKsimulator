@@ -52,49 +52,50 @@ def column_overlays(cell, model, max_heat: float = MAX_HEAT):
 
     heat = cell.shown_temp if cell.shown_temp else cell.temp
     hh = int(min(max(math.ceil((heat - 20.0) * 10.0 / max_heat), 0), 10))
-    if hh > 0:
-        out.append((0, 10 - hh, 1, hh, C_HEAT))
-        out.append((9, 10 - hh, 1, hh, C_HEAT))
 
     if kind in ("FUEL", "FUEL_SIM"):
         ft = cell.fuel_type
         if ft is not None:
             melt = float(getattr(ft, "melting_point", 0.0) or 0.0)
-            fh = 0 if melt <= 0 else int(min(max(math.ceil((cell.hull_heat - 20.0) * 8.0 / melt), 0), 8))
-            fe = int(min(max(math.ceil((1.0 - cell.burnup) * 8.0), 0), 8))
-            fx = int(min(max(math.ceil(cell.xenon * 8.0 / 100.0), 0), 8))
-            # 图标内容区为 1..9（四周各 1px 边框），三根条取 3px 宽刚好铺满、无缝隙
-            # 底边与格子底边齐平（原来的 9-h 会在底部留 1px 灰边，看起来像没贴合）
+            fh = 0 if melt <= 0 else int(min(max(math.ceil((cell.hull_heat - 20.0) * 10.0 / melt), 0), 10))
+            fe = int(min(max(math.ceil((1.0 - cell.burnup) * 10.0), 0), 10))
+            fx = int(min(max(math.ceil(cell.xenon * 10.0 / 100.0), 0), 10))
+            # 三根状态条并排铺满整格（1..4 / 4..7 / 7..10），高度按整格 10 计、贴底生长
             out.append((1, 10 - fh, 3, fh, C_SKIN))
             out.append((4, 10 - fe, 3, fe, C_ENRICH))
             out.append((7, 10 - fx, 3, fx, C_XENON))
 
     elif kind == "BOILER":
-        fw = int(min(max(math.ceil(cell.water * 8.0 / BOILER_WATER_MAX), 0), 8))
-        out.append((1, 10 - fw, 3, fw, C_WATER))
+        fw = int(min(max(math.ceil(cell.water * 10.0 / BOILER_WATER_MAX), 0), 10))
+        # 水条铺满整格宽度（贴底生长），不再只占左三分之一而留下大片灰底
+        out.append((0, 10 - fw, 10, fw, C_WATER))
         dot = STEAM_DOT.get(cell.steam_type)
         if dot:
-            dy = {"STEAM": 1, "HOTSTEAM": 3, "SUPERHOTSTEAM": 5, "ULTRAHOTSTEAM": 7}[cell.steam_type]
-            out.append((4, dy, 2, 2, dot))
+            out.append((4, 4, 2, 2, dot))
 
     elif kind == "HEATEX":
-        fw = int(min(max(math.ceil(cell.water * 8.0 / HEATER_IN_MAX), 0), 8))
-        out.append((1, 10 - fw, 3, fw, C_HEATEX_IN))
+        fw = int(min(max(math.ceil(cell.water * 10.0 / HEATER_IN_MAX), 0), 10))
+        out.append((0, 10 - fw, 10, fw, C_HEATEX_IN))
 
     # 模组里 CONTROL 没有 break，会穿透到 CONTROL_AUTO 的插入条
     if kind == "CONTROL":
         idx = GROUP_INDEX.get(getattr(cell.group, "value", None))
         if idx is not None:
             color = CTRL_COLORS[idx]
-            out.append((2, 1, 2, 9, color))
-            out.append((6, 1, 2, 9, color))
+            out.append((2, 0, 2, 10, color))
+            out.append((6, 0, 2, 10, color))
 
     if kind in ("CONTROL", "CONTROL_AUTO"):
         if kind == "CONTROL_AUTO":
             frac = max(0.0, min(1.0, 1.0 - cell.level))
         else:
             frac = max(0.0, min(1.0, model.effective_insertion(cell) / 100.0))
-        fr = 8 - int(math.ceil(frac * 8.0))
-        out.append((4, 1, 3, fr, C_AUTO))
+        fr = 10 - int(math.ceil(frac * 10.0))
+        out.append((4, 0, 3, fr, C_AUTO))
+
+    # 热量条最后叠加，保证状态条再满也能看到左右两条红线
+    if hh > 0:
+        out.append((0, 10 - hh, 1, hh, C_HEAT))
+        out.append((9, 10 - hh, 1, hh, C_HEAT))
 
     return [r for r in out if r[3] > 0 and r[2] > 0]
