@@ -8,6 +8,8 @@ CTRL = ComponentType.RBMK_CONTROL
 MOD = ComponentType.RBMK_MODERATOR
 REFL = ComponentType.RBMK_REFLECTOR
 ABS = ComponentType.RBMK_ABSORBER
+BLANK = ComponentType.RBMK_BLANK
+ROD_MOD = ComponentType.RBMK_ROD_MOD
 BOIL = ComponentType.RBMK_BOILER
 HEATER = ComponentType.RBMK_HEATER
 SRC = "rbmk_fuel_po210be"
@@ -706,3 +708,33 @@ def test_raising_slope_fuel_uses_raising_curve_not_static():
     assert abs(reactivity_function(ft, 100.0, e) - expected) < 1e-9
     # STATIC 会得到 log10(101)*0.5*15 ≈ 15.03，与正确值不同
     assert abs(reactivity_function(ft, 100.0, e) - math.log10(101.0) * 0.5 * 15.0) > 1e-6
+
+
+def test_move_heat_adjusts_self_and_neighbors():
+    """TileEntityRBMKBase.moveHeat：调用时会把自身 + 四邻一起按同一平均值调整，
+    因此每对相邻柱每 tick 会互相调整两次，而不是只调整自己一次。"""
+    m = ReactorModel(3, 3)
+    a = m.place(1, 0, BLANK)
+    b = m.place(1, 1, BLANK)
+    e = SimulationEngine(m)
+    a.temp = 1000.0
+    b.temp = 20.0
+    e._heat_tick()
+    # 邻柱先 tick：两柱各朝 510 靠 20% → 902 / 118；另一柱再 tick → 823.6 / 196.4；各冷却 1.9
+    assert abs(a.temp - 821.7) < 1e-6
+    assert abs(b.temp - 194.5) < 1e-6
+
+
+def test_three_column_reflector_heats_up_from_channel():
+    """3 柱构型（慢化燃料通道 + 蒸汽管道 + 反射板）：反射板靠传导升温，
+    燃料柱温度不应因单侧扩散而虚高。"""
+    m = ReactorModel(5, 5)
+    rod = m.place(2, 1, ROD_MOD, fuel="rbmk_fuel_flashlead")
+    boil = m.place(2, 2, BOIL)
+    refl = m.place(2, 3, REFL)
+    e = SimulationEngine(m)
+    e.advance(20.0)
+    assert rod.temp < 300.0        # 单侧扩散时约 363
+    assert refl.temp > 120.0       # 单侧扩散时约 98
+    assert refl.temp < rod.temp    # 反射板只靠传导，永远低于燃料柱
+    assert boil.temp < rod.temp    # 蒸汽管道持续带走热量

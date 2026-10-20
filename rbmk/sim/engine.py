@@ -192,6 +192,7 @@ class SimulationEngine:
     def _cast_positions(self, positions, flux: float, ratio: float, origin) -> None:
         """按坐标序列逐格推进中子射线（RBMKNeutronStream.runStreamInteraction）。"""
         p = self.p
+        moderated = 0
         for nr, nc in positions:
             if not (0 <= nr < self.model.rows and 0 <= nc < self.model.cols):
                 return
@@ -202,6 +203,7 @@ class SimulationEngine:
 
             # 模组：type == MODERATOR || nodeTE.isModerated() → moderateStream()
             if b == Behavior.MODERATOR or cell.comp in MODERATED_COMPONENTS:
+                moderated += 1
                 ratio *= (1.0 - p["moderator_efficiency"])
                 if b == Behavior.MODERATOR:
                     continue
@@ -214,12 +216,17 @@ class SimulationEngine:
                 return
 
             if b == Behavior.REFLECTOR:
-                # 模组：反射体分支中若源燃料棒自身带慢化，反射流再慢化一次
+                # 模组：origin 自身带慢化也计一次，再按累计次数把反射流慢化一遍
                 if origin.comp in MODERATED_COMPONENTS:
-                    ratio *= (1.0 - p["moderator_efficiency"])
+                    moderated += 1
+                if ratio > 0.0:
+                    for _ in range(moderated):
+                        ratio *= (1.0 - p["moderator_efficiency"])
                 if p["reflector_efficiency"] == 1.0:
+                    # TileEntityRBMKRod.receiveFlux：快/慢通量按数量加权合并，不能覆盖
+                    fast = origin.flux_q * origin.flux_ratio + flux * ratio
                     origin.flux_q += flux
-                    origin.flux_ratio = ratio
+                    origin.flux_ratio = fast / origin.flux_q if origin.flux_q > 0 else 0.0
                     return
                 flux *= p["reflector_efficiency"]
                 continue
@@ -414,13 +421,15 @@ class SimulationEngine:
             steam += self._boil_normal(cells, hpm)
         self._run_heaters(cells)
 
-        # 四邻平均扩散
+        # 四邻扩散（TileEntityRBMKBase.moveHeat）：模组会把「自身 + 四邻」一起按同一个
+        # 平均值调整，所以每对相邻柱每 tick 要互相调整两次（各自 tick 一次），
+        # 而不是只调整自己一次——这直接决定燃料柱向反射板/蒸汽管道的传热速度。
         for r, c, cell in cells:
             nb = [self.model.cell_at(r + dr, c + dc) for dr, dc in DIRS]
             nb = [n for n in nb if n is not None]
-            total = cell.temp + sum(n.temp for n in nb)
-            avg = total / (len(nb) + 1)
-            cell.temp += (avg - cell.temp) * p["column_heat_flow"]
+            avg = (cell.temp + sum(n.temp for n in nb)) / (len(nb) + 1)
+            for x in (cell, *nb):
+                x.temp += (avg - x.temp) * p["column_heat_flow"]
 
         # 按邻接数被动冷却（邻接越少冷却越强）
         for r, c, cell in cells:
