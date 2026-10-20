@@ -33,6 +33,8 @@ DEFAULT_PARAMS = {
     "absorber_heat_conversion": 0.05,  # RBMKKeys: dialAbsorberHeatConversion = 0.05
     "boiler_heat_consumption": 0.1,  # RBMKKeys: dialBoilerHeatConsumption = 0.1
     "boiler_feed": 10000.0,          # 模组锅炉 feed 罐容量（MB），视为持续供水
+    "boiler_tank": 1000000.0,        # 模组锅炉 steam 罐容量（MB）→ 每 tick 产汽上限
+    "heater_tank": 16000.0,          # 模组加热器输出罐容量（MB）→ 每 tick 加热上限
     "boiler_capacity": 50.0,           # 兼容旧参数（新公式不再使用）
     "control_speed_mod": 1.0,
     "reactivity_mod": 1.0,
@@ -305,6 +307,10 @@ class SimulationEngine:
             else:
                 used = min(heat_provided / hpm, feed)
                 made = used * 100.0 / st.factor
+            # 每 tick 产出上限 = 模组蒸汽罐容量
+            if made > p["boiler_tank"]:
+                made = p["boiler_tank"]
+                used = made * st.factor / 100.0
             cell.water = max(0.0, feed - used)
             cell.steam += made
             cell.steam_rate = made
@@ -328,7 +334,12 @@ class SimulationEngine:
             ops = temp_range * tu_per_degree / hf.heat_req
             if ops <= 0.0:
                 continue
-            cell.heater_rate = ops * hf.amount_produced
+            produced = ops * hf.amount_produced
+            # 每 tick 产出上限 = 模组加热器输出罐容量
+            if produced > p["heater_tank"]:
+                ops = p["heater_tank"] / hf.amount_produced
+                produced = p["heater_tank"]
+            cell.heater_rate = produced
             cell.temp -= hf.heat_req * ops / tu_per_degree * hf.eff
 
         # 熔毁判定（满足任一即熔毁）：

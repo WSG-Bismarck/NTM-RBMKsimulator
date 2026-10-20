@@ -175,6 +175,7 @@
   - 超浓密：`steamProduced = heatProvided / 0.1 * 100 / factor`；`waterUsed = steamProduced / 100 * factor`；供水不足时按 `feed` 反算。
   - `heat -= waterUsed * 0.1`。
 - 软件中 `feed` 视为持续供水（10000 MB），不模拟管道补水。
+- 每 tick 产汽上限 = 模组蒸汽罐容量 **1,000,000 mB**。
 - 发电量按 `steam / 100` 折算，保持旧版标定（100 mB 蒸汽 ≈ 1 单位水）。
 - 蒸汽驱动涡轮发电。
 
@@ -198,6 +199,7 @@
   `ops = tempRange × TU_PER_DEGREE / heatReq`；
   `heat -= heatReq × ops / TU_PER_DEGREE × eff`（化简为 `heatReq × ops / 2000`）。
 - 软件把进/出罐视为无限直连，产量完全由柱温与公式决定；属性面板只显示「每刻加热流体产量」，不再提供手动上限。
+- 每 tick 加热上限 = 模组输出罐容量 **16,000 mB**。
 
 ### 7.4 各组件的模拟作用（v3）
 | 组件 | 作用 |

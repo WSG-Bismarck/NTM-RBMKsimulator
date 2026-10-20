@@ -349,9 +349,10 @@ def test_heater_water_produces_steam():
     h.heater_fluid = "WATER"
     h.temp = 400.0
     e._heat_tick()
-    # 水：eff=0.25 → 每 tick 只带走 0.25 × tempRange 的热量
-    assert h.heater_rate > 0.0
-    assert abs(h.temp - (400.0 - 2.5 - 0.25 * 297.5)) < 1e-6
+    # 产出被输出罐容量 16000 mB/tick 限制
+    assert abs(h.heater_rate - 16000.0) < 1e-6
+    # ops=160 → 热移除 = 200*160/500*0.25 = 16
+    assert abs(h.temp - (400.0 - 2.5 - 16.0)) < 1e-6
 
 
 def test_heater_requires_heat_above_output_temperature():
@@ -375,13 +376,31 @@ def test_heater_oil_rate_and_heat_removal():
     h.temp = 500.0
     h.heater_fluid = "OIL"                     # 原油：1→1，heatReq 10，产出温度 350
     e._heat_tick()
-    # 冷却后 497.5；tempRange=147.5 → ops=147.5*2000/10=29500
-    assert abs(h.heater_rate - 29500.0) < 1e-6
-    # 热移除 = 10*29500/2000 = 147.5 → 柱温降到 350
-    assert abs(h.temp - 350.0) < 1e-6
+    # 产出被输出罐容量限制；ops=16000 → 热移除 = 10*16000/2000 = 80
+    assert abs(h.heater_rate - 16000.0) < 1e-6
+    assert abs(h.temp - 417.5) < 1e-6
 
 
 def test_heater_default_fluid_is_coolant():
     m = ReactorModel(5, 5)
     h = m.place(2, 2, HEATER)
     assert h.heater_fluid == "COOLANT"
+
+
+def test_heater_output_capped_at_tank_capacity():
+    m = ReactorModel(5, 5)
+    h = m.place(2, 2, HEATER)
+    e = SimulationEngine(m)
+    h.heater_fluid = "WATER"
+    h.temp = 700.0
+    e._heat_tick()
+    assert abs(h.heater_rate - 16000.0) < 1e-6
+
+
+def test_boiler_steam_capped_at_tank_capacity():
+    m = ReactorModel(5, 5)
+    b = m.place(2, 2, BOIL)
+    e = SimulationEngine(m)
+    b.temp = 2000.0
+    e._heat_tick()
+    assert abs(b.steam_rate - 1000000.0) < 1e-6
