@@ -84,3 +84,12 @@ def test_heater_fields_roundtrip(tmp_path):
     save_load.save(m, p)
     c = save_load.load(p).cell_at(2, 2)
     assert c.heater_fluid == "BLOOD"
+
+
+def test_reasim_boilers_roundtrip(tmp_path):
+    """ReaSim 锅炉模式随设计文件保存/导入。"""
+    m = ReactorModel(rows=5, cols=5)
+    m.reasim_boilers = True
+    p = tmp_path / "boiler_mode.json"
+    save_load.save(m, p)
+    assert save_load.load(p).reasim_boilers is True

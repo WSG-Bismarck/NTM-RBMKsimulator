@@ -218,6 +218,17 @@
 | 热的Mug牌树根饮料 | 400 | 1 | 1.0 | 400 |
 | 热的血 | 500 | 1 | 1.0 | 500 |
 
+### 7.3.2 ReaSim 锅炉模式（TileEntityRBMKBase.boilWater）
+- 模组开关 `dialReasimBoilers` 默认 **关闭**；开启后**每根 RBMK 柱**都按锅炉公式产汽，不再局限于蒸汽管道。
+- 每 tick：`heat < 100` 不产汽；否则
+  `availableHeat = (heat - 100) / 0.1`；
+  `availableWater = reasimWater`（≤16000）；
+  `availableSpace = 16000 - reasimSteam`；
+  `processed = floor(min(availableHeat, availableWater, availableSpace) × clamp(dialReasimBoilerSpeed, 0, 1))`；
+  `reasimWater -= processed`；`reasimSteam += processed`；`heat -= processed × 0.1`。
+- `dialReasimBoilerSpeed` 默认 **0.05**（每 tick 只处理上限的 5%）；水→蒸汽 **1:1**（普通蒸汽管道是 1:100）；单柱上限 16,000 mB → 每 tick 最多 800 mB。
+- 软件采用方案 B：不实现 ReaSim 进水口/蒸汽出口，水与蒸汽视为持续供应/排出，只保留单柱 16,000 mB 上限；顶部「锅炉：普通 / 锅炉：ReaSim」按钮切换。
+
 ### 7.4 各组件的模拟作用（v3）
 | 组件 | 作用 |
 |---|---|

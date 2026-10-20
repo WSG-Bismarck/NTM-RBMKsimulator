@@ -504,3 +504,18 @@ def test_overview_global_heater_fluid_selector():
         assert win.model.cell_at(2, 3).heater_fluid == "BLOOD"
     finally:
         root.destroy()
+
+
+def test_toolbar_toggles_reasim_boiler_mode():
+    win, root = _fresh()
+    try:
+        assert win.model.reasim_boilers is False
+        assert win.boiler_btn.cget("text") == "锅炉：普通"
+        win.toggle_boiler_mode()
+        assert win.model.reasim_boilers is True
+        assert win.boiler_btn.cget("text") == "锅炉：ReaSim"
+        win.toggle_boiler_mode()
+        assert win.model.reasim_boilers is False
+        assert win.boiler_btn.cget("text") == "锅炉：普通"
+    finally:
+        root.destroy()

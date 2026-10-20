@@ -43,6 +43,8 @@ DEFAULT_PARAMS = {
     "boiler_heat_consumption": 0.1,  # RBMKKeys: dialBoilerHeatConsumption = 0.1
     "boiler_feed": 10000.0,          # 模组锅炉 feed 罐容量（MB），视为持续供水
     "boiler_tank": 1000000.0,        # 模组锅炉 steam 罐容量（MB）→ 每 tick 产汽上限
+    "reasim_boiler_speed": 0.05,     # RBMKKeys: dialReasimBoilerSpeed = 0.05
+    "reasim_boiler_capacity": 16000.0,  # ReaSim 单柱水/汽容量（mB）
     "heater_tank": 16000.0,          # 模组加热器输出罐容量（MB）→ 每 tick 加热上限
     "boiler_capacity": 50.0,           # 兼容旧参数（新公式不再使用）
     "control_speed_mod": 1.0,
@@ -325,35 +327,53 @@ class SimulationEngine:
         # 锅炉：热量 -> 蒸汽
         steam = 0.0
         hpm = p["boiler_heat_consumption"]       # 0.1 热量 / MB 水
-        feed = p["boiler_feed"]
-        for r, c, cell in cells:
-            if behavior_of(cell.comp) != Behavior.BOILER:
-                continue
-            cell.steam_rate = 0.0
-            st = STEAM_TYPES.get(cell.steam_type, STEAM_TYPES["STEAM"])
-            # 模组：heatProvided = heat - getHeatFromSteam(当前蒸汽类型)
-            heat_provided = cell.temp - st.heat
-            if heat_provided <= 0.0:
-                continue
-            # 模组产汽公式（TileEntityRBMKBoiler.func_145845_h）
-            if st.key == "ULTRAHOTSTEAM":
-                made = heat_provided / hpm * 100.0 / st.factor
-                used = made / 100.0 * st.factor
-                if feed < used:
-                    made = feed * 100.0 / st.factor
+        if self.model.reasim_boilers:
+            # ReaSim 锅炉模式（方案B：每根柱都产汽，水/汽视为持续供应/排出）
+            speed = p["reasim_boiler_speed"]
+            cap = p["reasim_boiler_capacity"]
+            for r, c, cell in cells:
+                cell.steam_rate = 0.0
+                if cell.temp < 100.0:
+                    continue
+                avail_heat = (cell.temp - 100.0) / hpm
+                # 模组：min(可用热, 可用水, 剩余空间) × speed；方案B 只保留单柱容量上限
+                made = min(avail_heat, cap) * speed
+                if made <= 0.0:
+                    continue
+                cell.steam += made
+                cell.steam_rate = made
+                cell.temp -= made * hpm
+                steam += made
+        else:
+            feed = p["boiler_feed"]
+            for r, c, cell in cells:
+                if behavior_of(cell.comp) != Behavior.BOILER:
+                    continue
+                cell.steam_rate = 0.0
+                st = STEAM_TYPES.get(cell.steam_type, STEAM_TYPES["STEAM"])
+                # 模组：heatProvided = heat - getHeatFromSteam(当前蒸汽类型)
+                heat_provided = cell.temp - st.heat
+                if heat_provided <= 0.0:
+                    continue
+                # 模组产汽公式（TileEntityRBMKBoiler.func_145845_h）
+                if st.key == "ULTRAHOTSTEAM":
+                    made = heat_provided / hpm * 100.0 / st.factor
                     used = made / 100.0 * st.factor
-            else:
-                used = min(heat_provided / hpm, feed)
-                made = used * 100.0 / st.factor
-            # 每 tick 产出上限 = 模组蒸汽罐容量
-            if made > p["boiler_tank"]:
-                made = p["boiler_tank"]
-                used = made * st.factor / 100.0
-            cell.water = max(0.0, feed - used)
-            cell.steam += made
-            cell.steam_rate = made
-            cell.temp -= used * hpm
-            steam += made
+                    if feed < used:
+                        made = feed * 100.0 / st.factor
+                        used = made / 100.0 * st.factor
+                else:
+                    used = min(heat_provided / hpm, feed)
+                    made = used * 100.0 / st.factor
+                # 每 tick 产出上限 = 模组蒸汽罐容量
+                if made > p["boiler_tank"]:
+                    made = p["boiler_tank"]
+                    used = made * st.factor / 100.0
+                cell.water = max(0.0, feed - used)
+                cell.steam += made
+                cell.steam_rate = made
+                cell.temp -= used * hpm
+                steam += made
         self._steam_tick = steam
 
         # 流体加热器（TileEntityRBMKHeater，FT_Heatable / HEATEXCHANGER）

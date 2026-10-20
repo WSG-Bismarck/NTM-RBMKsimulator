@@ -108,6 +108,8 @@ class MainWindow:
         self.run_btn = _btn(bar, "▶ 运行", self.toggle_run, "primary")
         self.run_btn.pack(side="left", pady=7)
         _btn(bar, "重置", self.reset_simulation).pack(side="left", padx=(4, 0), pady=7)
+        self.boiler_btn = _btn(bar, "锅炉：普通", self.toggle_boiler_mode)
+        self.boiler_btn.pack(side="left", padx=(4, 0), pady=7)
         self.speed_btns = {}
         grp = tk.Frame(bar, bg=theme.SURFACE)
         grp.pack(side="right", padx=10)
@@ -255,6 +257,16 @@ class MainWindow:
         self.grid_editor.redraw()
         self._refresh_state()
         self.render_panel()
+
+    def toggle_boiler_mode(self):
+        """切换普通锅炉 / ReaSim 锅炉模式。"""
+        self.model.reasim_boilers = not self.model.reasim_boilers
+        self._sync_boiler_btn()
+
+    def _sync_boiler_btn(self):
+        if getattr(self, "boiler_btn", None) is not None:
+            self.boiler_btn.configure(
+                text="锅炉：ReaSim" if self.model.reasim_boilers else "锅炉：普通")
 
     # ---------------- 循环 ----------------
     def _tick(self):
@@ -660,6 +672,7 @@ class MainWindow:
         self.grid_editor.selected = None
         self.grid_editor.redraw()
         self._refresh_all()
+        self._sync_boiler_btn()
 
     def save_file(self):
         path = filedialog.asksaveasfilename(

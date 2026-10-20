@@ -499,3 +499,38 @@ def test_reasim_mod_rod_component_spreads_8_ways():
     e = SimulationEngine(m)
     e._neutron_tick()
     assert abs(d.flux_q - 50.0 * 0.75) < 1e-9
+
+
+# ---------- ReaSim 锅炉模式 ----------
+def test_reasim_boilers_every_column_produces_steam():
+    m = ReactorModel(5, 5)
+    rod = m.place(2, 2, ROD, fuel=HEU)
+    mod = m.place(0, 0, MOD)
+    m.reasim_boilers = True
+    e = SimulationEngine(m)
+    rod.temp = 500.0
+    mod.temp = 500.0
+    e._heat_tick()
+    # 冷却后 497.5；avail=(497.5-100)/0.1=3975；made=3975*0.05=198.75
+    assert abs(rod.steam_rate - 198.75) < 1e-9
+    assert abs(mod.steam_rate - 198.75) < 1e-9
+    assert abs(rod.temp - (497.5 - 19.875)) < 1e-9
+
+
+def test_reasim_boiler_cap_is_800_per_tick():
+    m = ReactorModel(5, 5)
+    cell = m.place(2, 2, MOD)
+    m.reasim_boilers = True
+    e = SimulationEngine(m)
+    cell.temp = 5000.0
+    e._heat_tick()
+    assert abs(cell.steam_rate - 800.0) < 1e-9
+
+
+def test_normal_boiler_mode_does_not_boil_non_boiler_columns():
+    m = ReactorModel(5, 5)
+    mod = m.place(2, 2, MOD)
+    e = SimulationEngine(m)
+    mod.temp = 500.0
+    e._heat_tick()
+    assert mod.steam_rate == 0.0
