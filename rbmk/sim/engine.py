@@ -144,7 +144,7 @@ class SimulationEngine:
         best = None
         for _, _, cell in self.model.iter_cells():
             ft = cell.fuel_type
-            if cell.has_rod and ft and ft.melting_point > 0:
+            if ft and ft.melting_point > 0 and cell.fuel != "rbmk_fuel_empty":
                 best = ft.melting_point if best is None else min(best, ft.melting_point)
         return best or 1500.0
 
@@ -225,6 +225,8 @@ class SimulationEngine:
         for _, _, cell in self.model.iter_cells():
             cell.flux_q = 0.0
             cell.flux_ratio = 0.0
+            # 每 tick 从当前燃料推导，确保后放入/改过燃料的棒也会被处理
+            cell.has_rod = cell.fuel_type is not None and cell.fuel != "rbmk_fuel_empty"
 
         rods = [(r, c, cell) for r, c, cell in self.model.iter_cells()
                 if cell.has_rod and cell.fuel_type is not None]

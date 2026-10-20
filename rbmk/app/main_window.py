@@ -509,6 +509,9 @@ class MainWindow:
             if ft.name_cn == name:
                 cell.fuel = ft.key
                 break
+        cell.has_rod = cell.fuel_type is not None and cell.fuel != "rbmk_fuel_empty"
+        self.engine.state.melt_temp = self.engine._min_melting()
+        self._refresh_prop_values()
         self.grid_editor.redraw()
 
     def _set_group(self, cell, name):

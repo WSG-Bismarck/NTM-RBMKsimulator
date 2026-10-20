@@ -94,6 +94,7 @@ class ReactorModel:
         if not (0 <= r < self.rows and 0 <= c < self.cols):
             raise IndexError("坐标越界")
         cell = Cell(comp=comp, **kw)
+        cell.has_rod = cell.fuel_type is not None and cell.fuel != "rbmk_fuel_empty"
         self.grid[r][c] = cell
         return cell
 

@@ -191,3 +191,18 @@ def test_prop_panel_marks_self_igniting_fuel():
         assert "自燃" in texts(win.panel)
     finally:
         root.destroy()
+
+
+def test_ui_place_self_igniting_rod_starts():
+    """回归：在界面里先建引擎、再放自燃燃料棒，运行后必须发电。"""
+    win, root = _fresh()
+    try:
+        win.select_tool(ComponentType.RBMK_ROD.value)
+        win.grid_editor._paint((2, 2))
+        win._set_fuel(win.model.cell_at(2, 2), "低浓缩镅")
+        win.set_speed(100)
+        win.toggle_run()
+        win._tick()
+        assert win.engine.state.power > 0
+    finally:
+        root.destroy()

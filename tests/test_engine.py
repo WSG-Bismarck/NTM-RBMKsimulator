@@ -207,3 +207,13 @@ def test_self_igniting_emission_follows_burn_function():
     ft = FUELS["rbmk_fuel_lea"]
     expected = reactivity_function(ft, ft.self_rate, 1.0)
     assert abs(rod.flux - expected) < 1e-6
+
+
+def test_rod_placed_after_engine_creation_starts():
+    """回归：界面是“先建引擎、后放柱子”，后放的燃料棒也必须参与反应。"""
+    m = ReactorModel(5, 5)
+    e = SimulationEngine(m)          # 空模型时就创建引擎
+    m.place(2, 2, ROD, fuel=SRC)     # 之后再放自燃燃料棒
+    e.advance(1.0)
+    assert e.state.power > 0
+    assert e.state.flux > 0
