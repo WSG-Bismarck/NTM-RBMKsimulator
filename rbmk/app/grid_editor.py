@@ -24,7 +24,7 @@ class GridEditor(tk.Frame):
         self.selected: tuple[int, int] | None = None
         self._painting = False
 
-        self.canvas = tk.Canvas(self, bg=theme.BG, highlightthickness=0)
+        self.canvas = tk.Canvas(self, bg=theme.GRID_BG, highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
         self.canvas.bind("<Button-1>", self._on_down)
         self.canvas.bind("<B1-Motion>", self._on_drag)
@@ -139,7 +139,7 @@ class GridEditor(tk.Frame):
                 y = oy + r * cs
                 cell = m.grid[r][c]
                 if cell is None:
-                    fill, outline = "#151a20", "#1f262e"
+                    fill, outline = theme.GRID_BG, theme.GRID_LINE
                 else:
                     # 已放置组件不画描边，图标之间紧密拼接、无缝隙（过热时才加红框）
                     fill, outline = COMPONENT_INFO[cell.comp][1], ""
@@ -157,7 +157,7 @@ class GridEditor(tk.Frame):
                     elif cs >= 18:
                         cv.create_text(x + cs / 2, y + cs / 2 + 1,
                                        text=COMPONENT_SHORT[cell.comp],
-                                       fill="#0b0e11", font=(theme.FAMILY, max(6, cs // 4)))
+                                       fill="#000000", font=(theme.FAMILY, max(6, cs // 4)))
                     # 控制台叠加层：热量红线 / 燃料三色条 / 水条与蒸汽类型点 / 分组色与插入条
                     # 坐标一律取整到像素，避免每个格子的半像素舍入不同导致粗细/位置抖动
                     scale = cs / 10.0

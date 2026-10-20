@@ -7,9 +7,9 @@ MAX_POINTS = 150
 
 # key, 图例名, 颜色, 自动缩放下限（避免小数值被放大成满屏）
 SERIES = (
-    ("temp", "平均温度", "#ff6b35", 100.0),
-    ("elec", "瞬时发电量", "#f0a13a", 100.0),
-    ("flux", "中子通量", "#4fc3e8", 1.0),
+    ("temp", "平均温度", theme.MC_RED, 100.0),
+    ("elec", "瞬时发电量", theme.MC_GOLD, 100.0),
+    ("flux", "中子通量", theme.MC_AQUA, 1.0),
 )
 
 
@@ -21,13 +21,16 @@ class ChartPanel(tk.Frame):
 
         head = tk.Frame(self, bg=theme.SURFACE)
         head.pack(fill="x", padx=8, pady=(6, 0))
-        tk.Label(head, text="实时曲线", bg=theme.SURFACE, fg=theme.MUTED,
-                 font=theme.FONT_SMALL).pack(side="left")
+        tk.Label(head, text="实时曲线", bg=theme.SURFACE, fg=theme.INK,
+                 font=theme.FONT_BOLD).pack(side="left")
+        legend = tk.Frame(head, bg=theme.PLOT_BG, bd=1, relief="sunken")
+        legend.pack(side="right")
         for _, name, color, _ in SERIES:
-            tk.Label(head, text="■ " + name, bg=theme.SURFACE, fg=color,
-                     font=theme.FONT_SMALL).pack(side="right", padx=4)
+            tk.Label(legend, text="■ " + name, bg=theme.PLOT_BG, fg=color,
+                     font=theme.FONT_SMALL).pack(side="right", padx=4, pady=1)
 
-        self.canvas = tk.Canvas(self, bg=theme.SURFACE, highlightthickness=0, height=140)
+        self.canvas = tk.Canvas(self, bg=theme.PLOT_BG, highlightthickness=2,
+                                highlightbackground=theme.BORDER, height=140)
         self.canvas.pack(fill="both", expand=True, padx=8, pady=6)
         self.canvas.bind("<Configure>", lambda e: self.redraw())
 
@@ -51,7 +54,7 @@ class ChartPanel(tk.Frame):
         h = max(cv.winfo_height(), 10)
         for i in range(1, 5):
             y = h * i / 5
-            cv.create_line(0, y, w, y, fill="#20272f")
+            cv.create_line(0, y, w, y, fill=theme.PLOT_GRID)
         for key, _, color, floor in SERIES:
             arr = self.hist[key]
             if len(arr) < 2:

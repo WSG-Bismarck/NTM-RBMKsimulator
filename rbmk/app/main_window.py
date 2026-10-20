@@ -35,11 +35,17 @@ TOOLS = [("select", "选择"), ("erase", "擦除")]
 
 
 def _btn(parent, text, cmd, kind="normal"):
-    bg = theme.ACCENT if kind == "primary" else (theme.DANGER if kind == "danger" else theme.SURFACE2)
-    fg = "#16120a" if kind == "primary" else ("#ffffff" if kind == "danger" else theme.INK)
-    return tk.Button(parent, text=text, command=cmd, bg=bg, fg=fg,
-                     activebackground=theme.BORDER, activeforeground=theme.INK,
-                     relief="flat", bd=0, padx=10, pady=4, font=theme.FONT, cursor="hand2")
+    """原版风格按钮：灰石底、2px 凸起边框、白字，悬停变亮并转黄字。"""
+    if kind == "primary":
+        bg, hover = theme.BUTTON_PRIMARY, theme.BUTTON_PRIMARY_HOVER
+    elif kind == "danger":
+        bg, hover = theme.DANGER, "#c9433a"
+    else:
+        bg, hover = theme.BUTTON_BG, theme.BUTTON_BG_HOVER
+    return tk.Button(parent, text=text, command=cmd, bg=bg, fg=theme.BUTTON_FG,
+                     activebackground=hover, activeforeground=theme.BUTTON_FG_HOVER,
+                     relief="raised", bd=2, overrelief="raised",
+                     padx=8, pady=3, font=theme.FONT, cursor="hand2")
 
 
 class MainWindow:
@@ -68,7 +74,7 @@ class MainWindow:
         self._build_toolbar()
         self._build_statusbar()
 
-        bottom = tk.Frame(self.root, bg=theme.SURFACE, height=210)
+        bottom = tk.Frame(self.root, bg=theme.SURFACE, height=210, bd=2, relief="raised")
         bottom.pack(side="bottom", fill="x")
         bottom.pack_propagate(False)
         self.chart = ChartPanel(bottom, self)
@@ -82,7 +88,7 @@ class MainWindow:
             ("steam", "蒸汽产量"), ("power", "瞬时发电量"),
             ("total", "累计发电量"), ("fuel", "燃料平均寿命"),
         ]):
-            box = tk.Frame(self.metrics, bg=theme.SURFACE2, bd=0)
+            box = tk.Frame(self.metrics, bg=theme.SURFACE2, bd=2, relief="sunken")
             box.grid(row=i // 2, column=i % 2, sticky="nsew", padx=4, pady=4)
             tk.Label(box, text=title, bg=theme.SURFACE2, fg=theme.MUTED,
                      font=theme.FONT_SMALL, anchor="w").pack(fill="x", padx=8, pady=(6, 0))
@@ -101,7 +107,7 @@ class MainWindow:
         self.grid_editor.pack(side="left", fill="both", expand=True)
 
     def _build_toolbar(self):
-        bar = tk.Frame(self.root, bg=theme.SURFACE, height=48)
+        bar = tk.Frame(self.root, bg=theme.SURFACE, height=48, bd=2, relief="raised")
         bar.pack(side="top", fill="x")
         bar.pack_propagate(False)
         for text, cmd in [("新建", self.new_model), ("打开", self.open_file),
@@ -119,14 +125,13 @@ class MainWindow:
         tk.Label(grp, text="模拟速度", bg=theme.SURFACE, fg=theme.MUTED,
                  font=theme.FONT_SMALL).pack(side="left", padx=(0, 6))
         for s, label in SPEEDS:
-            b = tk.Button(grp, text=label, command=lambda v=s: self.set_speed(v),
-                          bg=theme.SURFACE2, fg=theme.MUTED, relief="flat", bd=0,
-                          padx=8, pady=4, font=theme.FONT_SMALL, cursor="hand2")
-            b.pack(side="left", padx=2)
+            b = _btn(grp, label, lambda v=s: self.set_speed(v))
+            b.configure(font=theme.FONT_SMALL, padx=6, pady=2)
+            b.pack(side="left", padx=2, pady=7)
             self.speed_btns[s] = b
 
     def _build_palette(self, parent):
-        left = tk.Frame(parent, bg=theme.SURFACE, width=210)
+        left = tk.Frame(parent, bg=theme.SURFACE, width=210, bd=2, relief="raised")
         left.pack(side="left", fill="y")
         left.pack_propagate(False)
 
@@ -178,7 +183,7 @@ class MainWindow:
                 self._palette_items[key] = row
 
     def _build_inspector(self, parent):
-        right = tk.Frame(parent, bg=theme.SURFACE, width=300)
+        right = tk.Frame(parent, bg=theme.SURFACE, width=300, bd=2, relief="raised")
         right.pack(side="right", fill="y")
         right.pack_propagate(False)
         tabs = tk.Frame(right, bg=theme.SURFACE)
@@ -187,15 +192,17 @@ class MainWindow:
         for key, name in [("prop", "选中属性"), ("overview", "总览"),
                           ("control", "模拟控制"), ("risk", "风险预警")]:
             b = tk.Button(tabs, text=name, command=lambda k=key: self.set_tab(k),
-                          bg=theme.SURFACE, fg=theme.MUTED, relief="flat", bd=0,
-                          padx=4, pady=8, font=theme.FONT_SMALL, cursor="hand2")
+                          bg=theme.BUTTON_BG, fg=theme.BUTTON_FG, relief="raised", bd=2,
+                          padx=4, pady=5, font=theme.FONT_SMALL, cursor="hand2",
+                          activebackground=theme.BUTTON_BG_HOVER,
+                          activeforeground=theme.BUTTON_FG_HOVER)
             b.pack(side="left", expand=True, fill="x")
             self._tab_btns[key] = b
         self.panel = tk.Frame(right, bg=theme.SURFACE)
         self.panel.pack(fill="both", expand=True, padx=10, pady=8)
 
     def _build_statusbar(self):
-        bar = tk.Frame(self.root, bg=theme.SURFACE, height=28)
+        bar = tk.Frame(self.root, bg=theme.SURFACE, height=28, bd=2, relief="raised")
         bar.pack(side="bottom", fill="x")
         bar.pack_propagate(False)
         self.sb_speed = tk.Label(bar, text="速度 1000x", bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL)
@@ -241,24 +248,26 @@ class MainWindow:
 
     def _sync_tab_buttons(self):
         for key, b in self._tab_btns.items():
-            b.configure(fg=theme.INK if key == self.tab else theme.MUTED)
+            b.configure(relief="sunken" if key == self.tab else "raised",
+                        bg=theme.SURFACE2 if key == self.tab else theme.BUTTON_BG,
+                        fg=theme.INK if key == self.tab else theme.BUTTON_FG)
 
     def set_speed(self, s):
         self.speed = s
         for k, b in self.speed_btns.items():
-            b.configure(bg=theme.ACCENT if k == s else theme.SURFACE2,
-                        fg="#16120a" if k == s else theme.MUTED)
+            b.configure(bg=theme.BUTTON_PRIMARY if k == s else theme.BUTTON_BG,
+                        fg=theme.BUTTON_FG, relief="sunken" if k == s else "raised")
 
     def toggle_run(self):
         self.running = not self.running
         self.run_btn.configure(text="⏸ 暂停" if self.running else "▶ 运行",
-                               bg=theme.DANGER if self.running else theme.ACCENT,
-                               fg="#ffffff" if self.running else "#16120a")
+                               bg=theme.DANGER if self.running else theme.BUTTON_PRIMARY,
+                               fg=theme.BUTTON_FG)
 
     def reset_simulation(self):
         """暂停并重置反应堆状态，保留已摆放的组件。"""
         self.running = False
-        self.run_btn.configure(text="▶ 运行", bg=theme.ACCENT, fg="#16120a")
+        self.run_btn.configure(text="▶ 运行", bg=theme.BUTTON_PRIMARY, fg=theme.BUTTON_FG)
         self.engine.reset()
         self.chart.reset()
         self.grid_editor.redraw()
@@ -345,7 +354,7 @@ class MainWindow:
         tk.Label(head, text=name, bg=theme.SURFACE, fg=theme.INK,
                  font=theme.FONT_BOLD).pack(side="left")
         if beh == Behavior.FUEL and cell.fuel_type and cell.fuel_type.is_self_igniting:
-            tk.Label(head, text="自燃", bg=theme.ACCENT, fg="#16120a",
+            tk.Label(head, text="自燃", bg=theme.GOLD, fg="#ffffff",
                      font=(theme.FAMILY, 7, "bold"), padx=4).pack(side="left", padx=(6, 0))
         tk.Label(head, text=f"{r+1}行 {c+1}列", bg=theme.SURFACE, fg=theme.MUTED,
                  font=(theme.FAMILY, 8)).pack(side="right")
