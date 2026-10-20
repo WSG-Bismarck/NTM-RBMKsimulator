@@ -295,8 +295,8 @@ class MainWindow:
         self._metric_labels["temp"].configure(text=f"{s.avg_temperature:.0f} °C")
         self._metric_labels["flux"].configure(text=f"{s.avg_flux:.2f}")
         self._metric_labels["steam"].configure(text=f"{s.steam:.0f} mB/s")
-        self._metric_labels["power"].configure(text="—")
-        self._metric_labels["total"].configure(text="—")
+        self._metric_labels["power"].configure(text=f"{s.electricity:,.0f} HE/tick")
+        self._metric_labels["total"].configure(text=f"{s.total_energy:,.0f} HE")
         self._metric_labels["fuel"].configure(text=f"{s.fuel_remaining:.1f}%")
 
     def _refresh_all(self):

@@ -202,14 +202,26 @@ class SteamType:
     name_cn: str
     heat: float      # getHeatFromSteam()：产汽所需的最低柱温
     factor: float    # getFactorFromSteam()：水 -> 蒸汽的压缩倍率
+    he_per_mb: float  # 经汽轮机逐级冷却到低压蒸汽（SPENTSTEAM）可发出的 HE/mB
 
 
 # 中文名取自 jar 内 assets/hbm/lang/zh_CN.lang 的 hbmfluid.*
+#
+# 发电换算取自 Fluids 的 FT_Coolable + TileEntityMachineLargeTurbine：
+#   STEAM         FT_Coolable(SPENTSTEAM, 100, 1, 200)   → 100 mB 蒸汽 → 1 mB 低压蒸汽 + 200 HE
+#   HOTSTEAM      FT_Coolable(STEAM,        1, 10, 2)    → 1 mB 热蒸汽 → 10 蒸汽 + 2 HE
+#   SUPERHOTSTEAM FT_Coolable(HOTSTEAM,     1, 10, 18)   → 1 mB 超热蒸汽 → 10 热蒸汽 + 18 HE
+#   ULTRAHOTSTEAM FT_Coolable(SUPERHOTSTEAM,1, 10, 120)  → 1 mB 超浓密蒸汽 → 10 超热蒸汽 + 120 HE
+# 汽轮机效率 eff_steam_turbine = 1.0；最优路径 = 逐级级联到 SPENTSTEAM：
+#   1 超浓密 = 120 + 10×(18 + 10×(2 + 10×2)) = 2500 HE
+#   1 超热   =  18 + 10×(2 + 10×2)            =  238 HE
+#   1 热蒸汽 =   2 + 10×2                      =   22 HE
+#   1 蒸汽   = 200/100                         =    2 HE
 STEAM_TYPES: dict[str, SteamType] = {
-    "STEAM": SteamType("STEAM", "蒸汽", 100.0, 1.0),
-    "HOTSTEAM": SteamType("HOTSTEAM", "热蒸汽", 300.0, 10.0),
-    "SUPERHOTSTEAM": SteamType("SUPERHOTSTEAM", "超热蒸汽", 450.0, 100.0),
-    "ULTRAHOTSTEAM": SteamType("ULTRAHOTSTEAM", "超浓密蒸汽", 600.0, 1000.0),
+    "STEAM": SteamType("STEAM", "蒸汽", 100.0, 1.0, 2.0),
+    "HOTSTEAM": SteamType("HOTSTEAM", "热蒸汽", 300.0, 10.0, 22.0),
+    "SUPERHOTSTEAM": SteamType("SUPERHOTSTEAM", "超热蒸汽", 450.0, 100.0, 238.0),
+    "ULTRAHOTSTEAM": SteamType("ULTRAHOTSTEAM", "超浓密蒸汽", 600.0, 1000.0, 2500.0),
 }
 
 

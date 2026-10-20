@@ -51,7 +51,7 @@ DEFAULT_PARAMS = {
     "control_speed_mod": 1.0,
     "reactivity_mod": 1.0,
     "surge_mod": 1.0,
-    "turbine_efficiency": 0.30,
+    "turbine_efficiency": 0.30,   # 兼容旧参数：发电量已改用 FT_Coolable 换算，不再使用
     "power_scale": 100.0,
     "warning_ratio": 0.60,
     "danger_ratio": 0.85,
@@ -483,8 +483,15 @@ class SimulationEngine:
         s.temp_rate = (max_temp - prev_temp) / 0.05
         s.steam = self._steam_tick * 20.0          # mB/s（1 tick = 0.05 s）
         # 蒸汽以 mB 计：100 mB 蒸汽 ≈ 旧模型 1 单位水，除以 100 保持发电量标定不变
-        s.electricity = s.steam / 100.0 * p["turbine_efficiency"] * p["power_scale"]
-        s.total_energy += s.electricity * 0.05 / 3600.0
+        # 瞬时发电量（HE/tick）：每 tick 产出的各类蒸汽，按最优路径（逐级冷却到低压蒸汽）
+        # 经汽轮机换算成 HE。汽轮机效率 eff_steam_turbine = 1.0。
+        he = 0.0
+        for _, _, cell in self.model.iter_cells():
+            if cell.steam_rate > 0.0:
+                st = STEAM_TYPES.get(cell.steam_type, STEAM_TYPES["STEAM"])
+                he += cell.steam_rate * st.he_per_mb
+        s.electricity = he
+        s.total_energy += he
 
         if rods:
             s.fuel_remaining = 100.0 * (1.0 - sum(cell.burnup for _, _, cell in rods) / len(rods))

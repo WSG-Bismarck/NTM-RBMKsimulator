@@ -838,3 +838,39 @@ def test_display_temp_is_independent_of_coordinates():
     for other in (b, c):
         for x, y in zip(a, other):
             assert abs(x - y) < 0.01
+
+
+def test_electricity_is_he_per_tick_through_optimal_turbine_route():
+    """瞬时发电量 = 每刻产汽 × 该蒸汽逐级冷却到低压蒸汽的 HE/mB：
+    蒸汽 2、热蒸汽 22、超热蒸汽 238、超浓密蒸汽 2500（FT_Coolable 级联，效率 1.0）。"""
+    cases = [("STEAM", 200.0, 2.0), ("HOTSTEAM", 500.0, 22.0),
+             ("SUPERHOTSTEAM", 700.0, 238.0), ("ULTRAHOTSTEAM", 1000.0, 2500.0)]
+    for steam_type, temp, he_per_mb in cases:
+        m = ReactorModel(3, 3)
+        b = m.place(1, 1, BOIL)
+        b.steam_type = steam_type
+        e = SimulationEngine(m)
+        b.temp = temp
+        e._begin_tick()
+        e._heat_tick()
+        e._end_tick()
+        e._update_state()
+        assert b.steam_rate > 0
+        assert abs(e.state.electricity - b.steam_rate * he_per_mb) < 1e-6
+        # 累计发电量按 tick 累加
+        prev = e.state.total_energy
+        b.temp = temp
+        e._begin_tick()
+        e._heat_tick()
+        e._end_tick()
+        e._update_state()
+        assert abs(e.state.total_energy - (prev + e.state.electricity)) < 1e-6
+
+
+def test_electricity_zero_without_steam():
+    m = ReactorModel(3, 3)
+    m.place(1, 1, BOIL)
+    e = SimulationEngine(m)
+    e.advance(1.0)
+    assert e.state.electricity == 0.0
+    assert e.state.total_energy == 0.0

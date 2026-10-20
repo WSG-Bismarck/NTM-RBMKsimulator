@@ -412,7 +412,7 @@ def test_overview_global_steam_type_selector():
 
 
 def test_metrics_bar_titles_and_placeholders():
-    """下方 6 项：平均温度、平均通量、蒸汽(mB/s)、瞬时/累计发电(占位)、平均寿命。"""
+    """下方 6 项：平均温度、平均通量、蒸汽(mB/s)、瞬时发电(HE/tick)、累计发电(HE)、平均寿命。"""
     win, root = _fresh()
     try:
         win.model.place(2, 2, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
@@ -438,8 +438,8 @@ def test_metrics_bar_titles_and_placeholders():
 
         assert win._metric_labels["temp"].cget("text").endswith("°C")
         assert win._metric_labels["steam"].cget("text").endswith("mB/s")
-        assert win._metric_labels["power"].cget("text") == "—"
-        assert win._metric_labels["total"].cget("text") == "—"
+        assert win._metric_labels["power"].cget("text").endswith("HE/tick")
+        assert win._metric_labels["total"].cget("text").endswith("HE")
         assert win._metric_labels["fuel"].cget("text").endswith("%")
     finally:
         root.destroy()

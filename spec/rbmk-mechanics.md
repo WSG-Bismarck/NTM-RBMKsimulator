@@ -198,8 +198,15 @@
 - **执行顺序（与模组一致）**：锅炉 / 流体加热器先跑自身逻辑 → `moveHeat`（四邻扩散 + 被动冷却）→ ReaSim `boilWater`。因此水充足时锅炉柱温 = 蒸汽阈值 + 本 tick 从邻柱扩散进来的热量，显示上会略高于 100°C（例如 112°C），而不是恒定 100。
 - 软件按**无限供水**处理（每 tick 都按满 10,000 mB 计算）；`waterUsed` 与 `steamProduced` 均按模组 `floor` 取整；每 tick 最多按 10,000 mB 水带走 1,000 热量。属性面板显示单位为 **mB/tick**。
 - 每 tick 产汽上限 = 模组蒸汽罐容量 **1,000,000 mB**。
-- 发电量按 `steam / 100` 折算，保持旧版标定（100 mB 蒸汽 ≈ 1 单位水）。
-- 蒸汽驱动涡轮发电。
+- **瞬时发电量（HE/tick）**：各类蒸汽按最优路径逐级冷却到低压蒸汽（`SPENTSTEAM`）后经汽轮机换算。
+  取自 `Fluids` 的 `FT_Coolable` 与 `TileEntityMachineLargeTurbine`（`eff_steam_turbine = 1.0`）：
+  | 蒸汽 | 汽轮机一步 | 级联到低压蒸汽后 |
+  |---|---|---|
+  | 蒸汽 STEAM | 100 mB → 1 mB 低压蒸汽 + 200 HE | **2 HE/mB** |
+  | 热蒸汽 HOTSTEAM | 1 mB → 10 蒸汽 + 2 HE | **22 HE/mB** |
+  | 超热蒸汽 SUPERHOTSTEAM | 1 mB → 10 热蒸汽 + 18 HE | **238 HE/mB** |
+  | 超浓密蒸汽 ULTRAHOTSTEAM | 1 mB → 10 超热蒸汽 + 120 HE | **2500 HE/mB** |
+  每 tick 发电 = Σ(各柱 `steam_rate` × 对应 HE/mB)；累计发电量按 tick 累加。
 
 ### 7.3.1 流体加热器（TileEntityRBMKHeater）
 - 只处理带 `FT_Heatable` 且 `HEATEXCHANGER` 效率 > 0 的流体，取 `getFirstStep()`。
