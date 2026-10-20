@@ -257,3 +257,24 @@ def test_prop_panel_hides_core_hull_for_non_fuel():
         assert "hull" in win._prop_labels
     finally:
         root.destroy()
+
+
+def test_prop_panel_hides_neutron_rows_for_non_fuel():
+    """非燃料通道（含辐照通道）不显示通量/快慢中子计数/快中子占比。"""
+    win, root = _fresh()
+    try:
+        for col, comp in ((1, ComponentType.RBMK_BOILER),
+                          (2, ComponentType.RBMK_OUTGASSER),
+                          (3, ComponentType.RBMK_MODERATOR)):
+            win.model.place(2, col, comp)
+            win.on_select((2, col))
+            for key in ("flux", "fast", "slow", "ratio", "outflux"):
+                assert key not in win._prop_labels, (comp, key)
+            assert "temp" in win._prop_labels
+
+        win.model.place(2, 4, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
+        win.on_select((2, 4))
+        for key in ("flux", "fast", "slow", "ratio", "outflux"):
+            assert key in win._prop_labels
+    finally:
+        root.destroy()
