@@ -291,10 +291,15 @@ class SimulationEngine:
             steam += water
         self._steam_tick = steam
 
-        # 熔毁判定：模组 TileEntityRBMKRod.updateEntity → heat > maxHeat()（固定 1500）
+        # 熔毁判定（满足任一即熔毁）：
+        #   1) 任一组件柱温 > maxHeat() = 1500
+        #   2) 燃料棒壳温（hull_heat）> 该燃料熔点
         melt_at = self.p["max_heat"]
         for _, _, cell in cells:
-            if cell.has_rod and cell.temp > melt_at:
+            if cell.temp > melt_at:
+                self.state.melted = True
+            ft = cell.fuel_type
+            if cell.has_rod and ft and ft.melting_point > 0 and cell.hull_heat > ft.melting_point:
                 self.state.melted = True
 
     # ---------- 状态 ----------

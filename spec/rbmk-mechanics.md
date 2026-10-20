@@ -160,7 +160,10 @@
   - `core += outFlux × heat`
   - `mid = (core - hull) / 2`；`core -= mid × diffusion × diffusionMod`；`hull += mid × diffusion × diffusionMod`
   - 若 `hull > columnHeat`：`ret = (hull - columnHeat) / 2 × heatProvision(0.2)`；`hull -= ret`；`columnHeat += ret`
-- 熔毁（`TileEntityRBMKRod.updateEntity`）：`columnHeat > maxHeat()`。`TileEntityRBMKRod` **没有重写** `maxHeat()`，继承 `TileEntityRBMKBase.maxHeat()` → 固定 **1500**；燃料的 `meltingPoint` 只参与 `provideHeat` 的过热扩散（`hull > meltingPoint` 时向邻柱散热），**不是**熔毁阈值。拆卸/区块卸载时另有 `hullHeat >= 1500` 兜底（`func_145843_s`）。非燃料柱没有每 tick 熔毁判定。
+- 熔毁（本软件采用的两条并行判定，满足任一即熔毁）：
+  - **任一组件柱温 > `maxHeat()` = 1500**（模组 `TileEntityRBMKRod.updateEntity` 的 `heat > maxHeat()`，`maxHeat()` 未重写、固定 1500）；
+  - **燃料棒壳温 `hull_heat` > 该燃料 `meltingPoint`**（对应模组 `func_145843_s` 的壳温兜底判定，阈值改为各燃料自己的熔点）。
+  - 燃料的 `meltingPoint` 不再作为柱温熔毁线；非燃料柱只走第一条。
 
 ### 7.3 锅炉（TileEntityRBMKBoiler）
 - 热 > 100 时：`waterUsed = (heat - 100) / boilerHeatConsumption(0.1)`，受供水能力限制。

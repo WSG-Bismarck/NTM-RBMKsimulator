@@ -248,12 +248,35 @@ def test_fuel_below_1500_does_not_melt():
     assert not e.state.melted
 
 
-def test_non_fuel_column_does_not_melt():
-    """非燃料柱没有 maxHeat 判定，不会触发熔毁。"""
+def test_any_column_above_1500_melts():
+    """条件1：任一组件（含锅炉等非燃料柱）柱温 > 1500 即熔毁。"""
     m = ReactorModel(5, 5)
     cell = m.place(2, 2, BOIL)
     e = SimulationEngine(m)
     cell.temp = 2000.0
+    e._heat_tick()
+    e._update_state()
+    assert e.state.melted
+
+
+def test_fuel_hull_above_melting_point_melts():
+    """条件2：柱温不高，但燃料壳温超过自身熔点。"""
+    m = ReactorModel(5, 5)
+    rod = m.place(2, 2, ROD, fuel=HEU)   # 熔点 2865
+    e = SimulationEngine(m)
+    rod.temp = 300.0
+    rod.hull_heat = 2900.0
+    e._heat_tick()
+    e._update_state()
+    assert e.state.melted
+
+
+def test_fuel_hull_below_melting_point_does_not_melt():
+    m = ReactorModel(5, 5)
+    rod = m.place(2, 2, ROD, fuel=HEU)
+    e = SimulationEngine(m)
+    rod.temp = 300.0
+    rod.hull_heat = 2800.0
     e._heat_tick()
     e._update_state()
     assert not e.state.melted
