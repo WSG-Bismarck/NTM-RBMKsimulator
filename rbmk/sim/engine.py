@@ -20,6 +20,7 @@ DIRS = ((0, 1), (1, 0), (0, -1), (-1, 0))  # 东南西北
 
 DEFAULT_PARAMS = {
     "flux_range": 5,                 # RBMKKeys: dialFluxRange = 5
+    "max_heat": 1500.0,             # TileEntityRBMKBase.maxHeat()：柱温熔毁阈值
     "column_height": 4,              # RBMKKeys: dialColumnHeight = 4
     "column_heat_flow": 0.2,         # RBMKKeys: dialColumnHeatFlow = 0.2
     "passive_cooling": 2.5,          # RBMKKeys: dialPassiveCooling = 2.5
@@ -115,7 +116,7 @@ class SimulationEngine:
     def __init__(self, model: ReactorModel, params: dict | None = None):
         self.model = model
         self.p = {**DEFAULT_PARAMS, **(params or {})}
-        self.state = EngineState(melt_temp=self._min_melting())
+        self.state = EngineState(melt_temp=self._melt_threshold())
         self._steam_tick = 0.0
         self._reset()
 
@@ -136,18 +137,14 @@ class SimulationEngine:
             cell.has_rod = cell.fuel_type is not None and cell.fuel != "rbmk_fuel_empty"
             cell.core_heat = 20.0
             cell.hull_heat = 20.0
-        self.state = EngineState(melt_temp=self._min_melting())
+        self.state = EngineState(melt_temp=self._melt_threshold())
 
     def reset(self) -> None:
         self._reset()
 
-    def _min_melting(self) -> float:
-        best = None
-        for _, _, cell in self.model.iter_cells():
-            ft = cell.fuel_type
-            if ft and ft.melting_point > 0 and cell.fuel != "rbmk_fuel_empty":
-                best = ft.melting_point if best is None else min(best, ft.melting_point)
-        return best or 1500.0
+    def _melt_threshold(self) -> float:
+        """模组熔毁阈值：TileEntityRBMKBase.maxHeat() = 1500（与燃料熔点无关）。"""
+        return float(self.p["max_heat"])
 
     # ---------- 中子 ----------
     def _burn(self, cell, ft: FuelType, flux_in: float) -> tuple[float, float]:
@@ -294,11 +291,11 @@ class SimulationEngine:
             steam += water
         self._steam_tick = steam
 
-        # 熔毁判定
+        # 熔毁判定：模组 TileEntityRBMKRod.updateEntity → heat > maxHeat()（固定 1500）
+        melt_at = self.p["max_heat"]
         for _, _, cell in cells:
-            if cell.has_rod and cell.fuel_type and cell.fuel_type.melting_point > 0:
-                if cell.temp > cell.fuel_type.melting_point:
-                    self.state.melted = True
+            if cell.has_rod and cell.temp > melt_at:
+                self.state.melted = True
 
     # ---------- 状态 ----------
     def _update_state(self) -> None:
@@ -306,7 +303,7 @@ class SimulationEngine:
         s = self.state
         rods = [(r, c, cell) for r, c, cell in self.model.iter_cells()
                 if cell.has_rod and cell.fuel_type is not None]
-        s.melt_temp = self._min_melting()
+        s.melt_temp = self._melt_threshold()
 
         total_flux = sum(cell.flux for _, _, cell in rods)
         total_heat = sum(cell.heat for _, _, cell in rods)
@@ -326,9 +323,8 @@ class SimulationEngine:
             s.fuel_remaining = 100.0 * (1.0 - sum(cell.burnup for _, _, cell in rods) / len(rods))
             s.xenon = sum(cell.xenon for _, _, cell in rods) / len(rods)
 
-        melt = s.melt_temp or 1500.0
-        if s.melted or max_temp >= melt:
-            s.melted = True
+        melt = s.melt_temp or self.p["max_heat"]
+        if s.melted:
             s.status = "meltdown"
         else:
             ratio = max_temp / melt if melt > 0 else 0.0

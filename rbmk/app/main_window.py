@@ -217,7 +217,7 @@ class MainWindow:
         self.render_panel()
 
     def on_model_changed(self):
-        self.engine.state.melt_temp = self.engine._min_melting()
+        self.engine.state.melt_temp = self.engine._melt_threshold()
         self.render_panel()
 
     def set_tab(self, key):
@@ -366,7 +366,7 @@ class MainWindow:
             self._prop_row("燃耗", "burnup")
             self._prop_row("氙毒", "xenon")
             self._prop_row("剩余寿命", "life")
-            self._prop_row("熔点", "melt")
+            self._prop_row("燃料熔点", "melt")
             self._prop_row("燃烧函数", "function")
             self._prop_row("反应性", "reactivity")
             self._prop_row("自发射率", "selfrate")
@@ -503,7 +503,7 @@ class MainWindow:
                  font=theme.FONT_SMALL, wraplength=260, justify="left", anchor="w").pack(fill="x")
         for label, val in [
             ("堆芯温度", f"{s.temperature:.0f} °C"),
-            ("燃料熔点", f"{r.melt_temp:.0f} °C"),
+            ("柱温上限", f"{r.melt_temp:.0f} °C"),
             ("温度占比", f"{r.ratio*100:.0f}%"),
             ("预计安全运行时长", format_duration(r.time_to_meltdown)),
         ]:
@@ -521,7 +521,7 @@ class MainWindow:
                 cell.fuel = ft.key
                 break
         cell.has_rod = cell.fuel_type is not None and cell.fuel != "rbmk_fuel_empty"
-        self.engine.state.melt_temp = self.engine._min_melting()
+        self.engine.state.melt_temp = self.engine._melt_threshold()
         self._refresh_prop_values()
         self.grid_editor.redraw()
 

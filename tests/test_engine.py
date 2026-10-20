@@ -217,3 +217,43 @@ def test_rod_placed_after_engine_creation_starts():
     e.advance(1.0)
     assert e.state.power > 0
     assert e.state.flux > 0
+
+
+def test_melt_threshold_is_mod_max_heat():
+    m = ReactorModel(5, 5)
+    m.place(2, 2, ROD, fuel=HEU)
+    e = SimulationEngine(m)
+    assert e.state.melt_temp == 1500.0
+
+
+def test_fuel_melts_above_1500_even_if_fuel_melting_point_higher():
+    """模组用 maxHeat()=1500 判定，不看燃料熔点（HEU 熔点 2865）。"""
+    m = ReactorModel(5, 5)
+    rod = m.place(2, 2, ROD, fuel=HEU)
+    e = SimulationEngine(m)
+    rod.temp = 1600.0
+    e._heat_tick()
+    e._update_state()
+    assert e.state.melted
+    assert e.state.status == "meltdown"
+
+
+def test_fuel_below_1500_does_not_melt():
+    m = ReactorModel(5, 5)
+    rod = m.place(2, 2, ROD, fuel=HEU)
+    e = SimulationEngine(m)
+    rod.temp = 1490.0
+    e._heat_tick()
+    e._update_state()
+    assert not e.state.melted
+
+
+def test_non_fuel_column_does_not_melt():
+    """非燃料柱没有 maxHeat 判定，不会触发熔毁。"""
+    m = ReactorModel(5, 5)
+    cell = m.place(2, 2, BOIL)
+    e = SimulationEngine(m)
+    cell.temp = 2000.0
+    e._heat_tick()
+    e._update_state()
+    assert not e.state.melted

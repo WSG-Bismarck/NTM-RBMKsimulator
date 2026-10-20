@@ -11,7 +11,7 @@ LEVEL_NAMES = {"normal": "正常", "warning": "警告", "danger": "危险", "mel
 _MSG = {
     "normal": "运行正常，温度在安全范围",
     "warning": "温度偏高，建议加大冷却或插入控制棒",
-    "danger": "温度接近燃料熔点，随时可能熔毁",
+    "danger": "柱温接近 1500°C 熔毁线，随时可能熔毁",
     "meltdown": "堆芯已熔毁",
 }
 

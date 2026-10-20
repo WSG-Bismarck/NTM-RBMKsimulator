@@ -122,7 +122,7 @@
 - **热**：燃料按通量产热；冷却剂带走热量；锅炉把热转为蒸汽；蒸汽驱动涡轮发电；冷凝回水。
 - **燃料消耗**：燃耗随功率累积；剩余寿命 = 1 − 燃耗。
 - **氙毒**：氙生成/燃耗双过程（对应 xGen / xBurn）。
-- **熔毁**：单柱温度超过燃料熔点触发；可配置“超压熔毁”。
+- **熔毁**：燃料柱柱温 `columnHeat > maxHeat() = 1500` 触发（与燃料熔点无关）；非燃料柱不参与每 tick 熔毁判定。
 - **控制棒**：全局 / 分组（5 色）/ 单根 三种调节方式。
 - **数值常量**：取 `ItemRBMKRod` 字段语义（reactivity/heat/yield/meltingPoint/xGen/xBurn 等）构造各燃料参数；具体默认值见 `rbmk/model/components.py`。
 
@@ -160,7 +160,7 @@
   - `core += outFlux × heat`
   - `mid = (core - hull) / 2`；`core -= mid × diffusion × diffusionMod`；`hull += mid × diffusion × diffusionMod`
   - 若 `hull > columnHeat`：`ret = (hull - columnHeat) / 2 × heatProvision(0.2)`；`hull -= ret`；`columnHeat += ret`
-- 熔毁：`columnHeat > 燃料熔点`。
+- 熔毁（`TileEntityRBMKRod.updateEntity`）：`columnHeat > maxHeat()`。`TileEntityRBMKRod` **没有重写** `maxHeat()`，继承 `TileEntityRBMKBase.maxHeat()` → 固定 **1500**；燃料的 `meltingPoint` 只参与 `provideHeat` 的过热扩散（`hull > meltingPoint` 时向邻柱散热），**不是**熔毁阈值。拆卸/区块卸载时另有 `hullHeat >= 1500` 兜底（`func_145843_s`）。非燃料柱没有每 tick 熔毁判定。
 
 ### 7.3 锅炉（TileEntityRBMKBoiler）
 - 热 > 100 时：`waterUsed = (heat - 100) / boilerHeatConsumption(0.1)`，受供水能力限制。
