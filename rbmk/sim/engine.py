@@ -404,6 +404,22 @@ class SimulationEngine:
         cell.heater_heat = produced * (hf.cool_heat / hf.cool_amount) * hf.cool_eff
         cell.temp -= hf.heat_req * ops / tu_per_degree * hf.eff
 
+    def _cool_one(self, r: int, c: int, cell) -> None:
+        """冷却器（TileEntityRBMKCooler）：每 tick 消耗 50 mB 冷四氟甲烷，
+        把 5×5 范围内每根 RBMK 柱的 heat 减去 200（下限 20）。"""
+        count = 0
+        for dr in range(-2, 3):
+            for dc in range(-2, 3):
+                other = self.model.cell_at(r + dr, c + dc)
+                if other is None:
+                    continue
+                other.temp -= 200.0
+                if other.temp < AMBIENT:
+                    other.temp = AMBIENT
+                count += 1
+        cell.cooler_cells = count
+        cell.cooler_rate = 50.0 if count else 0.0
+
     def _auto_control_step(self, cell) -> None:
         """自动控制棒（TileEntityRBMKControlAuto）：按自身柱温算目标插入度，再按 0.00277/tick 逼近。"""
         p = self.p
@@ -448,7 +464,9 @@ class SimulationEngine:
         for r, c, cell in cells:
             b = behavior_of(cell.comp)
             emitted = None
-            if b == Behavior.FUEL and cell.has_rod and cell.fuel_type is not None:
+            if b == Behavior.COOLER:
+                self._cool_one(r, c, cell)
+            elif b == Behavior.FUEL and cell.has_rod and cell.fuel_type is not None:
                 emitted = self._rod_step(cell)
             elif b == Behavior.CONTROL and cell.comp == ComponentType.RBMK_CONTROL_AUTO:
                 self._auto_control_step(cell)

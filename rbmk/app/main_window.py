@@ -412,6 +412,9 @@ class MainWindow:
             self._prop_row("当前插入度" if auto else "有效 level", "level")
         if beh == Behavior.BOILER:
             self._prop_row("每刻蒸汽产生量", "steam")
+        if beh == Behavior.COOLER:
+            self._prop_row("每刻消耗冷四氟甲烷", "cooler_use")
+            self._prop_row("作用柱数（5×5）", "cooler_cells")
         if beh == Behavior.HEATER:
             self._prop_row("每刻加热流体产量", "heater")
             self._prop_row("每刻热量产出", "heater_heat")
@@ -471,6 +474,12 @@ class MainWindow:
                 vals["level"] = f"{1.0 - self.model.effective_insertion(cell) / 100.0:.2f}"
         if behavior_of(cell.comp) == Behavior.BOILER:
             vals["steam"] = f"{cell.steam_rate:.0f} mB/tick"
+        if behavior_of(cell.comp) == Behavior.COOLER:
+            vals["cooler_use"] = f"{cell.cooler_rate:.0f} mB/tick"
+            vals["cooler_cells"] = str(cell.cooler_cells)
+        if behavior_of(cell.comp) == Behavior.COOLER:
+            vals["cooler_use"] = f"{cell.cooler_rate:.0f} mB/tick"
+            vals["cooler_cells"] = str(cell.cooler_cells)
         if behavior_of(cell.comp) == Behavior.HEATER:
             vals["heater"] = f"{cell.heater_rate:.0f} mB/tick"
             vals["heater_heat"] = f"{cell.heater_heat:.0f} TU/tick"

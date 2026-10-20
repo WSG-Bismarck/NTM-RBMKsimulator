@@ -928,3 +928,32 @@ def test_auto_control_rod_attenuates_flux_by_level():
     e._end_tick()
     assert abs(auto.level - 0.5) < 1e-9
     assert abs(dst.flux_q - 25.0) < 1e-6                # 源棒 50 × 0.5
+
+
+def test_cooler_cools_columns_inside_5x5_only():
+    """冷却器：5×5 范围内每根柱 -200 热量（下限 20），范围外不受影响，每 tick 耗 50 mB。"""
+    m = ReactorModel(9, 9)
+    cooler = m.place(4, 4, ComponentType.RBMK_COOLER)
+    inside = m.place(2, 2, ComponentType.RBMK_BLANK)     # 相对 (-2,-2)，不相邻
+    outside = m.place(0, 0, ComponentType.RBMK_BLANK)    # 相对 (-4,-4)，超出范围
+    e = SimulationEngine(m)
+    inside.temp = 1000.0
+    outside.temp = 1000.0
+    e._begin_tick()
+    e._heat_tick()
+    # 两根柱都没有邻接，被动冷却 = 0.1 + 2.4×(4/4) = 2.5
+    assert abs(inside.temp - (1000.0 - 200.0 - 2.5)) < 1e-9
+    assert abs(outside.temp - (1000.0 - 2.5)) < 1e-9
+    assert cooler.cooler_rate == 50.0
+    assert cooler.cooler_cells == 2                      # 自身 + inside
+    assert cooler.temp == 20.0                           # 自身也被冷却，下限 20
+
+
+def test_cooler_cannot_go_below_ambient():
+    m = ReactorModel(5, 5)
+    cooler = m.place(2, 2, ComponentType.RBMK_COOLER)
+    e = SimulationEngine(m)
+    cooler.temp = 100.0
+    e._begin_tick()
+    e._heat_tick()
+    assert cooler.temp == 20.0

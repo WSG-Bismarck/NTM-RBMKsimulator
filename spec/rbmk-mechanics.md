@@ -35,6 +35,14 @@
 > - 其余 `rbmk_*` 方块（`rbmk_top` / `rbmk_blank_top` / `rbmk_element*` / `rbmk_smooth` / `rbmk_debris*`）是柱顶、内部元素、装饰或残骸，不作为独立组件。
 > - 旧版 `TileEntityRBMKConsole$ColumnType`（14 种）是控制台内部用于分类的枚举，与实际可放置方块不是一一对应；本清单已按 ModBlocks 替换。
 
+## 1.9 冷却器（TileEntityRBMKCooler）
+
+- 输入罐：冷四氟甲烷 `PERFLUOROMETHYL_COLD` 4000 mB；输出罐：四氟甲烷 `PERFLUOROMETHYL` 4000 mB。
+- 每 tick 判定：输入 ≥ 50 mB 且输出罐剩余空间 ≥ 50 mB → 消耗 **50 mB** 冷四氟甲烷、产出 50 mB 四氟甲烷，并把 **5×5 范围**（同层，x±2 / z±2，含冷却器自己）内每根 RBMK 柱 `heat -= 200`，下限 20。
+- 5×5 邻接缓存每 60 tick 刷新一次（新放/拆除的柱最多延迟 3 秒生效）。
+- 冷却能力上限 = 25 根柱 × 200 = **5000 热量/tick**，是 RBMK 里最强的热汇。
+- 软件按“管道持续供液与排液”处理，因此每 tick 固定消耗 50 mB；属性面板显示「每刻消耗冷四氟甲烷」与「作用柱数（5×5）」。
+
 ## 2.1 自动控制棒（TileEntityRBMKControlAuto）
 
 - 字段：`function`（LINEAR / QUAD_UP / QUAD_DOWN）、`heatLower`、`heatUpper`、`levelLower`、`levelUpper`（插入度百分比 0..100）。

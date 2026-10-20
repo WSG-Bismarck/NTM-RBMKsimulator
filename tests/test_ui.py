@@ -619,3 +619,23 @@ def test_auto_control_sliders_accept_manual_input():
         assert ent.get() == "1500"
     finally:
         root.destroy()
+
+
+def test_cooler_prop_shows_cold_perfluoromethyl_per_tick():
+    """冷却器属性显示每刻消耗冷四氟甲烷。"""
+    from rbmk.model.components import ComponentType
+    win, root = _fresh()
+    try:
+        win.select_tool(ComponentType.RBMK_COOLER.value)
+        win.grid_editor._paint((2, 2))
+        win.on_select((2, 2))
+        assert win._prop_labels["cooler_use"].cget("text") == "0 mB/tick"
+        win.set_speed(1)
+        win.toggle_run()
+        for _ in range(3):
+            win._tick()
+        win.toggle_run()
+        assert win._prop_labels["cooler_use"].cget("text") == "50 mB/tick"
+        assert win._prop_labels["cooler_cells"].cget("text") == "1"
+    finally:
+        root.destroy()
