@@ -534,3 +534,75 @@ def test_normal_boiler_mode_does_not_boil_non_boiler_columns():
     mod.temp = 500.0
     e._heat_tick()
     assert mod.steam_rate == 0.0
+
+
+# ---------- 热量模型与模组对齐 ----------
+def test_hull_heat_reaches_column_even_without_flux():
+    """无中子输出时，残留芯/壳热仍应继续传向柱体（模组每 tick 都跑 updateHeat/provideHeat）。"""
+    m = ReactorModel(5, 5)
+    rod = m.place(2, 2, ROD, fuel=HEU)
+    e = SimulationEngine(m)
+    rod.core_heat = 1000.0
+    rod.hull_heat = 800.0
+    rod.temp = 20.0
+    e._neutron_tick()
+    # mid=100, diff=100*0.02=2 → core 998, hull 802
+    # ret=(802-20)/2*0.2=78.2 → hull 723.8, 柱温 98.2
+    assert abs(rod.core_heat - 998.0) < 1e-9
+    assert abs(rod.hull_heat - 723.8) < 1e-9
+    assert abs(rod.temp - 98.2) < 1e-9
+
+
+def test_core_heat_does_not_flow_back_to_hull():
+    """芯温低于壳温时，模组不做逆向传热。"""
+    m = ReactorModel(5, 5)
+    rod = m.place(2, 2, ROD, fuel=HEU)
+    e = SimulationEngine(m)
+    rod.core_heat = 100.0
+    rod.hull_heat = 500.0
+    rod.temp = 20.0
+    e._neutron_tick()
+    assert abs(rod.core_heat - 100.0) < 1e-9
+    assert abs(rod.hull_heat - 452.0) < 1e-9
+    assert abs(rod.temp - 68.0) < 1e-9
+
+
+def test_hull_above_melting_point_equalizes_core_hull_column():
+    """壳温 > 燃料熔点：芯/壳/柱取三者平均（ItemRBMKRod.provideHeat 分支）。"""
+    m = ReactorModel(5, 5)
+    rod = m.place(2, 2, ROD, fuel=HEU)   # 熔点 2865
+    e = SimulationEngine(m)
+    rod.core_heat = 3000.0
+    rod.hull_heat = 3000.0
+    rod.temp = 300.0
+    e._neutron_tick()
+    assert abs(rod.core_heat - 2100.0) < 1e-9
+    assert abs(rod.hull_heat - 2100.0) < 1e-9
+    assert abs(rod.temp - 2100.0) < 1e-9
+
+
+def test_heat_coeff_uses_core_temperature():
+    """热系数只看芯温，柱温不影响。"""
+    m1 = ReactorModel(3, 3)
+    r1 = m1.place(1, 1, ROD, fuel="rbmk_fuel_uzh")
+    e1 = SimulationEngine(m1)
+    r1.core_heat = 20.0
+    r1.temp = 20.0
+    base = e1._burn(r1, r1.fuel_type, 100.0)[0]
+
+    m2 = ReactorModel(3, 3)
+    r2 = m2.place(1, 1, ROD, fuel="rbmk_fuel_uzh")
+    e2 = SimulationEngine(m2)
+    r2.core_heat = 20.0
+    r2.temp = 2000.0                 # 柱温很高，但芯温低 → 不应触发热系数
+    cold = e2._burn(r2, r2.fuel_type, 100.0)[0]
+    assert abs(cold - base) < 1e-12
+
+    m3 = ReactorModel(3, 3)
+    r3 = m3.place(1, 1, ROD, fuel="rbmk_fuel_uzh")
+    e3 = SimulationEngine(m3)
+    r3.core_heat = 1250.0            # 芯温进入热系数区间
+    r3.temp = 20.0
+    hot = e3._burn(r3, r3.fuel_type, 100.0)[0]
+    # LOG_TEN 对富集度是分母关系，乘上 mult 后输出会变化（方向不重要，关键是“芯温生效”）
+    assert abs(hot - base) > 1e-6

@@ -178,8 +178,8 @@ class SimulationEngine:
 
         enrichment = max(0.0, 1.0 - cell.burnup)
         # 热系数（ItemRBMKRod.burn 中的 mult）
-        if ft.heat_coeff_start != 0.0 and cell.temp >= ft.heat_coeff_start and ft.heat_coeff_length > 0:
-            prog = min(1.0, (cell.temp - ft.heat_coeff_start) / ft.heat_coeff_length)
+        if ft.heat_coeff_start != 0.0 and cell.core_heat >= ft.heat_coeff_start and ft.heat_coeff_length > 0:
+            prog = min(1.0, (cell.core_heat - ft.heat_coeff_start) / ft.heat_coeff_length)
             enrichment *= math.sin((prog * math.pi + math.pi) / 2.0)
 
         out_flux = reactivity_function(ft, in_flux, enrichment)
@@ -279,17 +279,27 @@ class SimulationEngine:
             out_flux, out_ratio = self._burn(cell, ft, flux_in)
             cell.flux = out_flux
             cell.heat = out_flux * ft.heat
-            # 芯 -> 壳 -> 柱 热链（ItemRBMKRod.updateHeat / provideHeat）
-            if cell.heat > 0.0:
-                core = min(1_000_000.0, max(20.0, cell.core_heat + cell.heat))
-                mid = (core - cell.hull_heat) / 2.0
+            # 芯 -> 壳 -> 柱 热链（ItemRBMKRod.burn / updateHeat / provideHeat）
+            cell.core_heat = _clamp(cell.core_heat + cell.heat, 20.0, 1_000_000.0)
+
+            # updateHeat：只有芯温 > 壳温时才向壳传热（模组 if (coreHeat > hullHeat)）
+            if cell.core_heat > cell.hull_heat:
+                mid = (cell.core_heat - cell.hull_heat) / 2.0
                 diff = mid * ft.diffusion * p["fuel_diffusion_mod"]
-                cell.core_heat = core - diff
-                cell.hull_heat += diff
-                if cell.hull_heat > cell.temp:
-                    ret = (cell.hull_heat - cell.temp) / 2.0 * p["heat_provision"]
-                    cell.hull_heat -= ret
-                    cell.temp += ret
+                cell.core_heat = _clamp(cell.core_heat - diff, 20.0, 1_000_000.0)
+                cell.hull_heat = _clamp(cell.hull_heat + diff, 20.0, 1_000_000.0)
+
+            # provideHeat
+            if cell.hull_heat > ft.melting_point:
+                # 壳温超过燃料熔点：芯/壳/柱三者取平均，热量快速灌入柱体
+                avg = (cell.temp + cell.hull_heat + cell.core_heat) / 3.0
+                cell.core_heat = avg
+                cell.hull_heat = avg
+                cell.temp = avg
+            elif cell.hull_heat > cell.temp:
+                ret = (cell.hull_heat - cell.temp) / 2.0 * p["heat_provision"]
+                cell.hull_heat -= ret
+                cell.temp += ret
             if out_flux > 0.0:
                 if cell.comp in REASIM_COMPONENTS:
                     self._spread_reasim(r, c, out_flux, out_ratio, cell)

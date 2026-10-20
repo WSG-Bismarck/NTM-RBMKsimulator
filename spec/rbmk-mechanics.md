@@ -162,10 +162,12 @@
 ### 7.2 热量（TileEntityRBMKBase.moveHeat / coolPassively）
 - 每 tick 四邻扩散：`heat += (四邻平均 - heat) × columnHeatFlow(0.2)`。
 - 被动冷却：`heat -= passiveCoolingInner(0.1) + (passiveCooling(2.5) - 0.1) × ((4 - 邻接数) / 4)`，下限 20。
-- 燃料棒热链（`ItemRBMKRod.updateHeat / provideHeat`）：
-  - `core += outFlux × heat`
-  - `mid = (core - hull) / 2`；`core -= mid × diffusion × diffusionMod`；`hull += mid × diffusion × diffusionMod`
-  - 若 `hull > columnHeat`：`ret = (hull - columnHeat) / 2 × heatProvision(0.2)`；`hull -= ret`；`columnHeat += ret`
+- 燃料棒热链（`ItemRBMKRod.burn / updateHeat / provideHeat`，**每 tick 都执行**，与是否产热无关）：
+  - `core = rectify(core + outFlux × heat)`，`rectify` 夹在 20..1e6
+  - **仅当** `core > hull`：`mid = (core - hull) / 2`；`core -= mid × diffusion × diffusionMod`；`hull += mid × diffusion × diffusionMod`（模组不做逆向传热）
+  - 若 `hull > meltingPoint`：`avg = (columnHeat + hull + core) / 3`；`core = hull = columnHeat = avg`
+  - 否则若 `hull > columnHeat`：`ret = (hull - columnHeat) / 2 × heatProvision(0.2)`；`hull -= ret`；`columnHeat += ret`
+  - 热系数 `mult` 用**芯温**：`core >= heatCoeffStart` 时 `prog = min(1, (core - start) / length)`，`enrichment *= sin((progπ + π)/2)`
 - 熔毁（本软件采用的两条并行判定，满足任一即熔毁）：
   - **任一组件柱温 > `maxHeat()` = 1500**（模组 `TileEntityRBMKRod.updateEntity` 的 `heat > maxHeat()`，`maxHeat()` 未重写、固定 1500）；
   - **燃料棒壳温 `hull_heat` > 该燃料 `meltingPoint`**（对应模组 `func_145843_s` 的壳温兜底判定，阈值改为各燃料自己的熔点）。
