@@ -13,10 +13,10 @@ def _sample_model() -> ReactorModel:
     m.global_insertion = 60.0
     m.group_insertion["RED"] = 30.0
     m.coolant_flow = 70.0
-    m.place(2, 3, ComponentType.FUEL, fuel="rbmk_fuel_heu235")
-    m.place(2, 4, ComponentType.CONTROL, group=ControlGroup.RED, insertion=45.0)
-    m.place(3, 3, ComponentType.MODERATOR)
-    m.place(4, 4, ComponentType.BOILER)
+    m.place(2, 3, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
+    m.place(2, 4, ComponentType.RBMK_CONTROL, group=ControlGroup.RED, insertion=45.0)
+    m.place(3, 3, ComponentType.RBMK_MODERATOR)
+    m.place(4, 4, ComponentType.RBMK_BOILER)
     return m
 
 
@@ -31,7 +31,7 @@ def test_json_roundtrip_preserves_layout_and_params():
     assert m2.coolant_flow == 70.0
     assert m2.counts() == m.counts()
     c = m2.cell_at(2, 4)
-    assert c.comp == ComponentType.CONTROL
+    assert c.comp == ComponentType.RBMK_CONTROL
     assert c.group == ControlGroup.RED
     assert c.insertion == 45.0
     f = m2.cell_at(2, 3)

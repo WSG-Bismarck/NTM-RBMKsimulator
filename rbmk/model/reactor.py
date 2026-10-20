@@ -6,30 +6,33 @@ from typing import Optional
 
 from rbmk.model.components import (
     COMPONENT_INFO,
+    CONTROL_COMPONENTS,
+    FUEL_COMPONENTS,
+    Behavior,
     ComponentType,
     ControlGroup,
     FUELS,
     FuelType,
+    behavior_of,
 )
 
-
-CONTROL_TYPES = (ComponentType.CONTROL, ComponentType.CONTROL_AUTO)
-FUEL_TYPES = (ComponentType.FUEL, ComponentType.FUEL_SIM, ComponentType.BREEDER)
+CONTROL_TYPES = CONTROL_COMPONENTS
+FUEL_TYPES = FUEL_COMPONENTS
 
 
 @dataclass
 class Cell:
     comp: ComponentType
-    fuel: Optional[str] = None          # 燃料 key（FUEL / FUEL_SIM / BREEDER）
-    group: ControlGroup = ControlGroup.RED  # 控制棒颜色组
+    fuel: Optional[str] = None          # 燃料 key（燃料类柱子）
+    group: ControlGroup = ControlGroup.RED
     insertion: Optional[float] = None   # 单根插入深度 0..100；None=用分组/全局
     burnup: float = 0.0                 # 0..1
-    xenon: float = 0.0                  # 0..1
-    temp: float = 25.0                  # 冷却态温度
-    heat: float = 0.0                   # 当前热功率（模型单位）
-    flux: float = 0.0                   # 当前中子通量
-    steam: float = 0.0                  # 蒸汽
-    water: float = 100.0                # 冷却水
+    xenon: float = 0.0                  # 0..100（与模组一致）
+    temp: float = 25.0
+    heat: float = 0.0
+    flux: float = 0.0
+    steam: float = 0.0
+    water: float = 100.0
 
     @property
     def fuel_type(self) -> Optional[FuelType]:
@@ -65,17 +68,15 @@ class ReactorModel:
     cols: int = 15
     grid: list[list[Optional[Cell]]] = field(default_factory=list)
 
-    # 全局参数
-    global_insertion: float = 100.0                     # 全局插入深度 0..100
-    group_insertion: dict[str, Optional[float]] = field(default_factory=dict)  # 分组覆盖
-    coolant_flow: float = 50.0                          # 冷却流量 %
-    control_mode: str = "global"                        # global | group | single
+    global_insertion: float = 100.0
+    group_insertion: dict[str, Optional[float]] = field(default_factory=dict)
+    coolant_flow: float = 50.0
+    control_mode: str = "global"
 
     def __post_init__(self):
         if not self.grid:
             self.grid = [[None for _ in range(self.cols)] for _ in range(self.rows)]
 
-    # ---------- 网格操作 ----------
     def cell_at(self, r: int, c: int) -> Optional[Cell]:
         if 0 <= r < self.rows and 0 <= c < self.cols:
             return self.grid[r][c]
@@ -95,7 +96,6 @@ class ReactorModel:
     def clear(self) -> None:
         self.grid = [[None for _ in range(self.cols)] for _ in range(self.rows)]
 
-    # ---------- 统计 ----------
     def iter_cells(self):
         for r in range(self.rows):
             for c in range(self.cols):
@@ -110,15 +110,16 @@ class ReactorModel:
         return out
 
     def fuel_count(self) -> int:
-        return sum(1 for _, _, c in self.iter_cells() if c.comp in FUEL_TYPES and c.fuel)
+        return sum(1 for _, _, c in self.iter_cells()
+                   if behavior_of(c.comp) == Behavior.FUEL and c.fuel)
 
     def control_cells(self) -> list[tuple[int, int, Cell]]:
-        return [(r, c, cell) for r, c, cell in self.iter_cells() if cell.comp in CONTROL_TYPES]
+        return [(r, c, cell) for r, c, cell in self.iter_cells()
+                if behavior_of(cell.comp) == Behavior.CONTROL]
 
-    # ---------- 控制棒有效插入深度 ----------
     def effective_insertion(self, cell: Cell) -> float:
         """单根 > 分组 > 全局。返回 0..100。"""
-        if cell.comp not in CONTROL_TYPES:
+        if behavior_of(cell.comp) != Behavior.CONTROL:
             return 0.0
         if cell.insertion is not None:
             return _clamp(cell.insertion, 0.0, 100.0)
@@ -127,20 +128,16 @@ class ReactorModel:
             return _clamp(g, 0.0, 100.0)
         return _clamp(self.global_insertion, 0.0, 100.0)
 
-    # ---------- 序列化 ----------
     def to_dict(self) -> dict:
         return {
-            "version": 1,
+            "version": 2,
             "rows": self.rows,
             "cols": self.cols,
             "global_insertion": self.global_insertion,
             "group_insertion": dict(self.group_insertion),
             "coolant_flow": self.coolant_flow,
             "control_mode": self.control_mode,
-            "cells": [
-                {"r": r, "c": c, **cell.to_dict()}
-                for r, c, cell in self.iter_cells()
-            ],
+            "cells": [{"r": r, "c": c, **cell.to_dict()} for r, c, cell in self.iter_cells()],
         }
 
     @classmethod

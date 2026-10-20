@@ -16,7 +16,7 @@ def test_six_zones_and_counts():
         assert hasattr(win, "chart")
         assert hasattr(win, "panel")
         assert hasattr(win, "sb_state")
-        assert len(win._palette_items) == 14
+        assert len(win._palette_items) == 33
         assert len(win._tab_btns) == 4
         # 6 项关键数值标签
         assert set(win._metric_labels) == {"temp", "power", "energy", "steam", "flux", "fuel"}
@@ -27,14 +27,14 @@ def test_six_zones_and_counts():
 def test_place_and_overview():
     win, root = _fresh()
     try:
-        win.select_tool(ComponentType.FUEL.value)
-        win.model.place(2, 2, ComponentType.FUEL, fuel="rbmk_fuel_heu235")
-        win.model.place(2, 3, ComponentType.CONTROL)
+        win.select_tool(ComponentType.RBMK_ROD.value)
+        win.model.place(2, 2, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
+        win.model.place(2, 3, ComponentType.RBMK_CONTROL)
         win.on_model_changed()
         win.set_tab("overview")
         win.render_panel()
         assert win.model.fuel_count() == 1
-        assert win.model.counts()[ComponentType.CONTROL] == 1
+        assert win.model.counts()[ComponentType.RBMK_CONTROL] == 1
         assert len(win.panel.winfo_children()) > 0
     finally:
         root.destroy()
@@ -43,7 +43,7 @@ def test_place_and_overview():
 def test_select_shows_properties():
     win, root = _fresh()
     try:
-        win.model.place(3, 3, ComponentType.FUEL, fuel="rbmk_fuel_ueu")
+        win.model.place(3, 3, ComponentType.RBMK_ROD, fuel="rbmk_fuel_ueu")
         win.on_select((3, 3))
         assert win.tab == "prop"
         assert len(win.panel.winfo_children()) > 0
@@ -78,7 +78,7 @@ def test_all_tabs_render():
 def test_simulation_advances_when_running():
     win, root = _fresh()
     try:
-        win.model.place(5, 5, ComponentType.FUEL, fuel="rbmk_fuel_heu235")
+        win.model.place(5, 5, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
         win.on_model_changed()
         win.set_speed(100)
         win.toggle_run()
@@ -108,9 +108,9 @@ def test_control_slider_does_not_destroy_panel():
 def test_grid_paint_drag_erase_select():
     win, root = _fresh()
     try:
-        win.select_tool(ComponentType.FUEL.value)
+        win.select_tool(ComponentType.RBMK_ROD.value)
         win.grid_editor._paint((2, 2))
-        assert win.model.cell_at(2, 2).comp == ComponentType.FUEL
+        assert win.model.cell_at(2, 2).comp == ComponentType.RBMK_ROD
         win.grid_editor._paint((2, 3))  # 模拟拖动连续放置
         assert win.model.cell_at(2, 3) is not None
         win.select_tool("erase")

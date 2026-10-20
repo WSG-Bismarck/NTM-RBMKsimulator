@@ -2,31 +2,59 @@
 
 > 来源：`HBM-NTM-.1.0.27_X5846.jar`
 > 内部版本：`1.0.27_X5846`（mcmod.info 确认）；MC 1.7.10
-> 提取方式：解析 `.class` 常量池（无 Java 环境，未做完整反编译）
+> 提取方式：解析 `.class` 常量池 + CFR 0.152 反编译（Java 8 JRE）
 > 用途：模拟引擎与界面组件的唯一数据依据
 
-## 1. 组件清单（ColumnType 枚举，14 种）
+## 1. 组件清单（可放入反应堆的 33 种 rbmk_* 方块）
 
-来源：`com/hbm/tileentity/machine/rbmk/TileEntityRBMKConsole$ColumnType`
+来源：`com/hbm/blocks/ModBlocks`（全部 `rbmk_*` 方块）+ `assets/hbm/lang/zh_CN.lang`（标准中文名）
 
-| 枚举 | 中文名 | 说明 |
-|---|---|---|
-| BLANK | 空柱 | 占位 |
-| FUEL | 燃料棒 | 装燃料、产热与中子 |
-| FUEL_SIM | 模拟燃料棒 | 用于测试的燃料柱 |
-| CONTROL | 控制棒（手动） | 可调插入深度 |
-| CONTROL_AUTO | 自动控制棒 | 自动调节 |
-| BOILER | 锅炉/蒸汽通道 | 热→蒸汽 |
-| MODERATOR | 慢化剂（石墨） | 慢化中子 |
-| ABSORBER | 中子吸收体 | 吸收中子 |
-| REFLECTOR | 中子反射体 | 反射中子 |
-| OUTGASSER | 除气器 | 处理气体 |
-| BREEDER | 增殖柱 | 增殖燃料 |
-| STORAGE | 储存柱 | 存放燃料 |
-| COOLER | 冷却器 | 冷却 |
-| HEATEX | 热交换器 | 换热 |
+### 1.1 反应堆核心柱子（22）
 
-> 注：另有 `offset` 字段（列偏移），非组件类型。
+| 方块 ID | 标准中文名 |
+|---|---|
+| rbmk_rod | RBMK反应堆燃料通道 |
+| rbmk_rod_mod | RBMK反应堆慢化燃料通道 |
+| rbmk_rod_reasim | RBMK反应堆燃料通道(ReaSim) |
+| rbmk_rod_reasim_mod | RBMK反应堆慢化燃料通道(ReaSim) |
+| rbmk_control | RBMK反应堆控制棒 |
+| rbmk_control_auto | RBMK反应堆自动控制棒 |
+| rbmk_control_mod | RBMK反应堆慢化控制棒 |
+| rbmk_control_reasim | RBMK反应堆控制棒 (ReaSim) |
+| rbmk_control_reasim_auto | RBMK反应堆自动控制棒 (ReaSim) |
+| rbmk_boiler | RBMK反应堆蒸汽管道 |
+| rbmk_moderator | RBMK反应堆石墨慢化剂 |
+| rbmk_absorber | RBMK反应堆硼中子吸收器 |
+| rbmk_reflector | RBMK反应堆碳化钨中子反射器 |
+| rbmk_outgasser | RBMK反应堆辐照通道 |
+| rbmk_storage | RBMK燃料棒存储棒 |
+| rbmk_cooler | RBMK冷却器 |
+| rbmk_blank | RBMK反应堆结构柱 |
+| rbmk_heater | RBMK流体加热器 |
+| rbmk_autoloader | RBMK燃料自动装填机 |
+| rbmk_steam_inlet | RBMK ReaSim进水口 |
+| rbmk_steam_outlet | RBMK ReaSim蒸汽出口 |
+| rbmk_loader | RBMK反应堆蒸汽导出器 |
+
+### 1.2 控制 / 显示设备（11）
+
+| 方块 ID | 标准中文名 |
+|---|---|
+| rbmk_console | RBMK石墨式反应堆控制台 |
+| rbmk_crane_console | RBMK起重机控制台 |
+| rbmk_display | RBMK显示面板 |
+| rbmk_display_blank | 无线红石信号空白面板 |
+| rbmk_gauge | 无线红石信号流量控制器面板 |
+| rbmk_graph | 无线红石信号图表面板 |
+| rbmk_indicator | 无线红石信号指示灯 |
+| rbmk_key_pad | 无线红石信号按钮面板 |
+| rbmk_lever | 无线红石信号拉杆 |
+| rbmk_numitron | 无线红石信号数字显示器 |
+| rbmk_terminal | 无线红石信号发信终端 |
+
+> 说明：
+> - 其余 `rbmk_*` 方块（`rbmk_top` / `rbmk_blank_top` / `rbmk_element*` / `rbmk_smooth` / `rbmk_debris*`）是柱顶、内部元素、装饰或残骸，不作为独立组件。
+> - 旧版 `TileEntityRBMKConsole$ColumnType`（14 种）是控制台内部用于分类的枚举，与实际可放置方块不是一一对应；本清单已按 ModBlocks 替换。
 
 ## 2. 控制棒分组（RBMKColor，5 组）
 
@@ -104,9 +132,9 @@
 ## 6. 模拟机制（v1 模型说明与保真度）
 
 ### 6.1 已从 jar 精确得到（EXACT）
-- 组件类型清单（14 种）
+- 组件清单（33 种：22 核心 + 11 控制/显示）
 - 控制棒分组（5 色）
-- 燃料棒清单（35 项）
+- 燃料棒清单（34 项）
 - RBMK 参数键清单（25 项）
 - 中子类型（FAST/SLOW/ANY）、RBMK 类型分类
 

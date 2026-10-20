@@ -2,10 +2,14 @@
 import tkinter as tk
 
 from rbmk.app import theme
-from rbmk.model.components import COMPONENT_INFO, CONTROL_GROUP_COLORS, ComponentType
-
-FUEL_COMPS = (ComponentType.FUEL, ComponentType.FUEL_SIM, ComponentType.BREEDER)
-CONTROL_COMPS = (ComponentType.CONTROL, ComponentType.CONTROL_AUTO)
+from rbmk.model.components import (
+    COMPONENT_INFO,
+    COMPONENT_SHORT,
+    CONTROL_GROUP_COLORS,
+    Behavior,
+    ComponentType,
+    behavior_of,
+)
 
 
 class GridEditor(tk.Frame):
@@ -66,7 +70,7 @@ class GridEditor(tk.Frame):
         else:
             comp = ComponentType(tool)
             kw = {}
-            if comp in FUEL_COMPS:
+            if behavior_of(comp) == Behavior.FUEL:
                 kw["fuel"] = self.app.default_fuel
             self.app.model.place(r, c, comp, **kw)
         self.app.on_model_changed()
@@ -122,18 +126,18 @@ class GridEditor(tk.Frame):
                     fill, outline = "#151a20", "#1f262e"
                 else:
                     fill, outline = COMPONENT_INFO[cell.comp][1], "#0b0e11"
-                if cell is not None and cell.comp in CONTROL_COMPS:
+                if cell is not None and behavior_of(cell.comp) == Behavior.CONTROL:
                     outline = CONTROL_GROUP_COLORS.get(cell.group, "#0b0e11")
-                if cell is not None and cell.comp in FUEL_COMPS:
+                if cell is not None and behavior_of(cell.comp) == Behavior.FUEL:
                     ft = cell.fuel_type
                     if ft and ft.melting_point > 0 and cell.temp > 0.85 * ft.melting_point:
                         outline = theme.DANGER
                 cv.create_rectangle(x, y, x + cs, y + cs, fill=fill, outline=outline,
-                                    width=3 if (cell is not None and cell.comp in CONTROL_COMPS) else 1)
+                                    width=3 if (cell is not None and behavior_of(cell.comp) == Behavior.CONTROL) else 1)
                 if cell is not None and cs >= 18:
                     cv.create_text(x + cs / 2, y + cs / 2 + 1,
-                                   text=COMPONENT_INFO[cell.comp][0][:1],
-                                   fill="#0b0e11", font=(theme.FAMILY, max(7, cs // 3)))
+                                   text=COMPONENT_SHORT[cell.comp],
+                                   fill="#0b0e11", font=(theme.FAMILY, max(6, cs // 4)))
         if self.selected:
             sr, sc = self.selected
             x = ox + 2 + sc * (cs + 2)

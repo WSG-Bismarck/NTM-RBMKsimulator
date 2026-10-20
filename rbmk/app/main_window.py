@@ -9,9 +9,11 @@ from rbmk.app.chart_panel import ChartPanel
 from rbmk.app.grid_editor import GridEditor
 from rbmk.model import save_load
 from rbmk.model.components import (
+    AUX_COMPONENTS,
     COMPONENT_INFO,
     CONTROL_GROUP_COLORS,
     CONTROL_GROUP_NAMES,
+    CORE_COMPONENTS,
     FUELS,
     ComponentType,
     ControlGroup,
@@ -44,7 +46,7 @@ class MainWindow:
         self.engine = SimulationEngine(self.model)
         self.running = False
         self.speed = 1000
-        self.selected_tool = "fuel"
+        self.selected_tool = ComponentType.RBMK_ROD.value
         self.default_fuel = "rbmk_fuel_heu235"
         self.selected_cell: tuple[int, int] | None = None
         self.tab = "prop"
@@ -112,37 +114,53 @@ class MainWindow:
             self.speed_btns[s] = b
 
     def _build_palette(self, parent):
-        left = tk.Frame(parent, bg=theme.SURFACE, width=170)
+        left = tk.Frame(parent, bg=theme.SURFACE, width=210)
         left.pack(side="left", fill="y")
         left.pack_propagate(False)
-        tk.Label(left, text="组件", bg=theme.SURFACE, fg=theme.MUTED,
-                 font=theme.FONT_SMALL, anchor="w").pack(fill="x", padx=10, pady=(10, 4))
+
+        canvas = tk.Canvas(left, bg=theme.SURFACE, highlightthickness=0, width=196)
+        vsb = tk.Scrollbar(left, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vsb.set)
+        vsb.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        inner = tk.Frame(canvas, bg=theme.SURFACE)
+        canvas.create_window((0, 0), window=inner, anchor="nw", width=196)
+        inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<MouseWheel>", lambda e: canvas.yview_scroll(int(-e.delta / 120), "units"))
+
         self._palette_items = {}
-        for comp in ComponentType:
-            name, color = COMPONENT_INFO[comp]
-            row = tk.Frame(left, bg=theme.SURFACE, cursor="hand2")
-            row.pack(fill="x", padx=6, pady=1)
-            sw = tk.Frame(row, bg=color, width=14, height=14)
-            sw.pack(side="left", padx=(4, 8))
+        self._tool_items = {}
+        self._add_palette_group(inner, "工具", [("select", "选择"), ("erase", "擦除")], is_tool=True)
+        self._add_palette_group(inner, "反应堆组件", CORE_COMPONENTS)
+        self._add_palette_group(inner, "控制 / 显示设备", AUX_COMPONENTS)
+
+    def _add_palette_group(self, parent, title, items, is_tool=False):
+        tk.Label(parent, text=title, bg=theme.SURFACE, fg=theme.MUTED,
+                 font=theme.FONT_SMALL, anchor="w").pack(fill="x", padx=8, pady=(10, 4))
+        for item in items:
+            if is_tool:
+                key, name = item
+                color = theme.ACCENT if key == "select" else theme.DANGER
+                onclick = lambda e, k=key: self.select_tool(k)
+            else:
+                comp = item
+                key = comp.value
+                name, color = COMPONENT_INFO[comp]
+                onclick = lambda e, c=comp: self.select_tool(c.value)
+            row = tk.Frame(parent, bg=theme.SURFACE, cursor="hand2")
+            row.pack(fill="x", padx=4, pady=1)
+            sw = tk.Frame(row, bg=color, width=12, height=12)
+            sw.pack(side="left", padx=(4, 6))
             sw.pack_propagate(False)
             lab = tk.Label(row, text=name, bg=theme.SURFACE, fg=theme.INK,
-                           font=theme.FONT_SMALL, anchor="w")
+                           font=(theme.FAMILY, 8), anchor="w")
             lab.pack(side="left", fill="x")
             for w in (row, sw, lab):
-                w.bind("<Button-1>", lambda e, c=comp: self.select_tool(c.value))
-            self._palette_items[comp.value] = row
-        tk.Label(left, text="工具", bg=theme.SURFACE, fg=theme.MUTED,
-                 font=theme.FONT_SMALL, anchor="w").pack(fill="x", padx=10, pady=(10, 4))
-        self._tool_items = {}
-        for key, name in TOOLS:
-            row = tk.Frame(left, bg=theme.SURFACE, cursor="hand2")
-            row.pack(fill="x", padx=6, pady=1)
-            lab = tk.Label(row, text=name, bg=theme.SURFACE, fg=theme.INK,
-                           font=theme.FONT_SMALL, anchor="w")
-            lab.pack(side="left", fill="x", padx=10, pady=4)
-            for w in (row, lab):
-                w.bind("<Button-1>", lambda e, k=key: self.select_tool(k))
-            self._tool_items[key] = row
+                w.bind("<Button-1>", onclick)
+            if is_tool:
+                self._tool_items[key] = row
+            else:
+                self._palette_items[key] = row
 
     def _build_inspector(self, parent):
         right = tk.Frame(parent, bg=theme.SURFACE, width=300)

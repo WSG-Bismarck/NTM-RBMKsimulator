@@ -2,8 +2,10 @@
 import pytest
 
 from rbmk.model.components import (
+    AUX_COMPONENTS,
     COMPONENT_INFO,
     CONTROL_GROUP_COLORS,
+    CORE_COMPONENTS,
     FUELS,
     ComponentType,
     ControlGroup,
@@ -11,9 +13,16 @@ from rbmk.model.components import (
 from rbmk.model.reactor import ReactorModel
 
 
-def test_component_count_is_14():
-    assert len(ComponentType) == 14
-    assert len(COMPONENT_INFO) == 14
+def test_component_count_is_33():
+    assert len(ComponentType) == 33
+    assert len(COMPONENT_INFO) == 33
+    assert len(CORE_COMPONENTS) == 22
+    assert len(AUX_COMPONENTS) == 11
+    # 名称必须来自 zh_CN.lang（抽查）
+    assert COMPONENT_INFO[ComponentType.RBMK_ROD][0] == "RBMK反应堆燃料通道"
+    assert COMPONENT_INFO[ComponentType.RBMK_CONTROL][0] == "RBMK反应堆控制棒"
+    assert COMPONENT_INFO[ComponentType.RBMK_ABSORBER][0] == "RBMK反应堆硼中子吸收器"
+    assert COMPONENT_INFO[ComponentType.RBMK_REFLECTOR][0] == "RBMK反应堆碳化钨中子反射器"
 
 
 def test_control_groups_are_5():
@@ -39,23 +48,23 @@ def test_fuel_list_is_34():
 
 def test_place_erase_counts():
     m = ReactorModel(rows=5, cols=5)
-    m.place(1, 1, ComponentType.FUEL, fuel="rbmk_fuel_heu235")
-    m.place(1, 2, ComponentType.MODERATOR)
-    m.place(2, 2, ComponentType.CONTROL, group=ControlGroup.RED)
+    m.place(1, 1, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
+    m.place(1, 2, ComponentType.RBMK_MODERATOR)
+    m.place(2, 2, ComponentType.RBMK_CONTROL, group=ControlGroup.RED)
     counts = m.counts()
-    assert counts[ComponentType.FUEL] == 1
-    assert counts[ComponentType.MODERATOR] == 1
-    assert counts[ComponentType.CONTROL] == 1
+    assert counts[ComponentType.RBMK_ROD] == 1
+    assert counts[ComponentType.RBMK_MODERATOR] == 1
+    assert counts[ComponentType.RBMK_CONTROL] == 1
     assert m.fuel_count() == 1
     m.erase(1, 1)
     assert m.cell_at(1, 1) is None
-    assert m.counts()[ComponentType.FUEL] == 0
+    assert m.counts()[ComponentType.RBMK_ROD] == 0
 
 
 def test_control_insertion_priority():
     m = ReactorModel(rows=3, cols=3)
     m.global_insertion = 40.0
-    cell = m.place(0, 0, ComponentType.CONTROL, group=ControlGroup.RED)
+    cell = m.place(0, 0, ComponentType.RBMK_CONTROL, group=ControlGroup.RED)
     # 默认用全局
     assert m.effective_insertion(cell) == 40.0
     # 分组覆盖
@@ -65,11 +74,11 @@ def test_control_insertion_priority():
     cell.insertion = 10.0
     assert m.effective_insertion(cell) == 10.0
     # 非控制棒返回 0
-    fuel = m.place(1, 1, ComponentType.FUEL, fuel="rbmk_fuel_ueu")
+    fuel = m.place(1, 1, ComponentType.RBMK_ROD, fuel="rbmk_fuel_ueu")
     assert m.effective_insertion(fuel) == 0.0
 
 
 def test_out_of_bounds_raises():
     m = ReactorModel(rows=3, cols=3)
     with pytest.raises(IndexError):
-        m.place(5, 5, ComponentType.FUEL, fuel="rbmk_fuel_ueu")
+        m.place(5, 5, ComponentType.RBMK_ROD, fuel="rbmk_fuel_ueu")

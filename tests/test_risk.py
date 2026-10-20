@@ -8,7 +8,7 @@ from rbmk.sim.risk import assess, format_duration
 def _model(coolant=50.0):
     m = ReactorModel(rows=6, cols=6)
     m.coolant_flow = coolant
-    m.place(2, 2, ComponentType.FUEL, fuel="rbmk_fuel_heu235")
+    m.place(2, 2, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
     return m
 
 

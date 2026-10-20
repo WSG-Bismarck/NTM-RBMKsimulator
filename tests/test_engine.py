@@ -9,15 +9,15 @@ def _model(coolant=50.0, insertion=100.0, with_control=False, with_mod=False,
     m = ReactorModel(rows=6, cols=6)
     m.coolant_flow = coolant
     m.global_insertion = insertion
-    m.place(2, 2, ComponentType.FUEL, fuel=fuel)
+    m.place(2, 2, ComponentType.RBMK_ROD, fuel=fuel)
     if with_control:
-        m.place(2, 3, ComponentType.CONTROL, group=ControlGroup.RED)
+        m.place(2, 3, ComponentType.RBMK_CONTROL, group=ControlGroup.RED)
     if with_mod:
-        m.place(3, 2, ComponentType.MODERATOR)
+        m.place(3, 2, ComponentType.RBMK_MODERATOR)
     if with_abs:
-        m.place(3, 3, ComponentType.ABSORBER)
+        m.place(3, 3, ComponentType.RBMK_ABSORBER)
     if with_boiler:
-        m.place(1, 1, ComponentType.BOILER)
+        m.place(1, 1, ComponentType.RBMK_BOILER)
     return m
 
 

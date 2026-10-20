@@ -2,25 +2,25 @@
 
 燃料反应性/燃烧/氙毒公式与常量来自 HBM-NTM-.1.0.27_X5846.jar 反编译
 （ItemRBMKRod.reactivityFunc / burn / xenonGenFunc / xenonBurnFunc）。
-热工与全局通量标度为 v2 建模层（见 spec/rbmk-mechanics.md）。
+热工与全局通量标度为模型层（见 spec/rbmk-mechanics.md）。
 """
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
 
-from rbmk.model.components import ComponentType, FuelType
+from rbmk.model.components import Behavior, FuelType, behavior_of
 from rbmk.model.reactor import FUEL_TYPES, ReactorModel
 
 AMBIENT = 25.0
 
 DEFAULT_PARAMS = {
-    "base_flux": 40.0,             # 全局中子通量标度（模型层）
+    "base_flux": 40.0,
     "moderator_efficiency": 0.30,
     "absorber_efficiency": 0.08,
     "reflector_efficiency": 0.25,
     "control_efficiency": 0.50,
-    "heat_coeff": 0.50,            # 热输入 -> 温升（模型层）
+    "heat_coeff": 0.50,
     "cooling_coeff": 0.03,
     "passive_cooling": 0.005,
     "turbine_efficiency": 0.30,
@@ -32,9 +32,7 @@ DEFAULT_PARAMS = {
 }
 
 
-# ---------- 精确公式（来自 jar） ----------
 def depletion_modifier(dep_func: str, enrichment: float) -> float:
-    """ItemRBMKRod.reactivityModByEnrichment（按反编译 switch 还原）。"""
     e = enrichment
     if dep_func == "RAISING_SLOPE":
         return 1.0
@@ -48,7 +46,6 @@ def depletion_modifier(dep_func: str, enrichment: float) -> float:
 
 
 def reactivity_function(ft: FuelType, in_flux: float, enrichment: float) -> float:
-    """ItemRBMKRod.reactivityFunc 的逐函数还原。"""
     flux = in_flux * depletion_modifier(ft.dep_func, enrichment)
     r = ft.reactivity
     f = ft.function
@@ -114,7 +111,7 @@ class SimulationEngine:
         best = None
         for _, _, cell in self.model.iter_cells():
             ft = cell.fuel_type
-            if cell.comp in FUEL_TYPES and ft and ft.melting_point > 0:
+            if behavior_of(cell.comp) == Behavior.FUEL and ft and ft.melting_point > 0:
                 best = ft.melting_point if best is None else min(best, ft.melting_point)
         return best or 2800.0
 
@@ -127,6 +124,9 @@ class SimulationEngine:
                 if nb is not None:
                     yield nb
 
+    def _count(self, b: Behavior) -> int:
+        return sum(1 for _, _, c in self.model.iter_cells() if behavior_of(c.comp) == b)
+
     def _control_absorption(self) -> float:
         total = 0.0
         for _, _, cell in self.model.control_cells():
@@ -137,7 +137,7 @@ class SimulationEngine:
         return [
             (r, c, cell)
             for r, c, cell in self.model.iter_cells()
-            if cell.comp in FUEL_TYPES and cell.fuel_type is not None
+            if behavior_of(cell.comp) == Behavior.FUEL and cell.fuel_type is not None
         ]
 
     def _substep(self, dt: float) -> None:
@@ -150,10 +150,11 @@ class SimulationEngine:
         fuel = self._fuel_cells()
         max_temp = s.temperature
 
-        mod = sum(1 for _, _, c in self.model.iter_cells() if c.comp == ComponentType.MODERATOR)
-        refl = sum(1 for _, _, c in self.model.iter_cells() if c.comp == ComponentType.REFLECTOR)
-        absb = sum(1 for _, _, c in self.model.iter_cells() if c.comp == ComponentType.ABSORBER)
-        boiler = sum(1 for _, _, c in self.model.iter_cells() if c.comp == ComponentType.BOILER)
+        mod = self._count(Behavior.MODERATOR)
+        refl = self._count(Behavior.REFLECTOR)
+        absb = self._count(Behavior.ABSORBER)
+        boiler = self._count(Behavior.BOILER)
+        cooler = self._count(Behavior.COOLER)
         ctrl = self._control_absorption()
 
         mod_factor = 1.0 + p["moderator_efficiency"] * math.sqrt(mod)
@@ -161,7 +162,8 @@ class SimulationEngine:
         abs_factor = 1.0 / (1.0 + p["absorber_efficiency"] * absb + p["control_efficiency"] * ctrl)
 
         flow = self.model.coolant_flow / 100.0
-        cooling = flow * p["cooling_coeff"] + p["passive_cooling"]
+        # 冷却器额外提供冷却能力
+        cooling = flow * p["cooling_coeff"] * (1.0 + 0.15 * cooler) + p["passive_cooling"]
 
         total_flux = 0.0
         total_heat = 0.0
@@ -170,11 +172,11 @@ class SimulationEngine:
 
         for r, c, cell in fuel:
             ft = cell.fuel_type
-            nmod = sum(1 for nb in self._neighbors(r, c) if nb.comp == ComponentType.MODERATOR)
+            nmod = sum(1 for nb in self._neighbors(r, c)
+                       if behavior_of(nb.comp) == Behavior.MODERATOR)
             in_flux = p["base_flux"] * mod_factor * refl_factor * abs_factor * (1.0 + 0.10 * nmod)
             in_flux += ft.self_rate
 
-            # 氙毒（0..100，与模组一致）
             if p["enable_xenon"] and ft.x_burn > 0:
                 x0 = cell.xenon
                 burn = in_flux * in_flux / ft.x_burn
@@ -189,7 +191,6 @@ class SimulationEngine:
             total_flux += out_flux
             total_heat += cell.heat
 
-            # 燃料消耗（模组：yield -= inFlux，enrichment = 剩余/初始）
             if ft.yield_ > 0:
                 cell.burnup = min(1.0, cell.burnup + in_flux / ft.yield_)
             burn_sum += cell.burnup
@@ -235,7 +236,6 @@ class SimulationEngine:
             s.status = "normal"
 
     def advance(self, dt_total: float) -> None:
-        """把 dt_total 秒模拟时间拆成 0.05s 子步推进。"""
         if dt_total <= 0:
             return
         dt = 0.05
