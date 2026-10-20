@@ -41,7 +41,8 @@ DEFAULT_PARAMS = {
     "absorber_efficiency": 1.0,      # RBMKKeys: dialAbsorberEfficiency = 1.0
     "absorber_heat_conversion": 0.05,  # RBMKKeys: dialAbsorberHeatConversion = 0.05
     "boiler_heat_consumption": 0.1,  # RBMKKeys: dialBoilerHeatConsumption = 0.1
-    "boiler_feed": 10000.0,          # 模组锅炉 feed 罐容量（MB），软件按无限供水处理
+    "boiler_feed": 10000.0,          # 模组锅炉 feed 罐容量（MB）
+    "boiler_water_supply": 10000.0,  # 每 tick 补水速率（mB/tick）；10,000 = 等同于无限供水
     "boiler_tank": 1000000.0,        # 模组锅炉 steam 罐容量（MB）→ 每 tick 产汽上限
     "reasim_boiler_speed": 0.05,     # RBMKKeys: dialReasimBoilerSpeed = 0.05
     "reasim_boiler_capacity": 16000.0,  # ReaSim 单柱水/汽容量（mB）
@@ -327,8 +328,8 @@ class SimulationEngine:
         """单根普通蒸汽管道产汽（TileEntityRBMKBoiler）；模组里在 moveHeat 之前执行。"""
         p = self.p
         cell.steam_rate = 0.0
-        # 无限供水：每 tick 都按满水箱计算
-        feed = p["boiler_feed"]
+        # 供水：水箱余量 + 本 tick 补水（管道），不超过 feed 罐容量
+        feed = min(cell.water + p["boiler_water_supply"], p["boiler_feed"])
         st = STEAM_TYPES.get(cell.steam_type, STEAM_TYPES["STEAM"])
         heat_provided = cell.temp - st.heat
         if heat_provided <= 0.0:
@@ -346,7 +347,7 @@ class SimulationEngine:
         if made > p["boiler_tank"]:
             made = p["boiler_tank"]
             used = made * st.factor / 100.0
-        cell.water = feed
+        cell.water = max(0.0, feed - used)
         cell.steam += made
         cell.steam_rate = made
         cell.temp -= used * hpm

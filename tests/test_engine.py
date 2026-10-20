@@ -620,7 +620,7 @@ def test_boiler_infinite_water_removes_heat_up_to_feed_cap():
     e._heat_tick()
     # heatProvided=1900 → 需求 19000 mB，水箱 10000 → 移除 1000，再被动冷却 2.5
     assert abs(b.temp - 997.5) < 1e-9
-    assert b.water == 10000.0
+    assert b.water == 0.0            # 本 tick 把 10,000 mB 全部用掉（下一 tick 由补水补满）
 
 
 def test_boiler_full_tank_cools_to_steam_threshold():
