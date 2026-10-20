@@ -19,7 +19,7 @@ def test_six_zones_and_counts():
         assert len(win._palette_items) == 18
         assert len(win._tab_btns) == 4
         # 6 项关键数值标签
-        assert set(win._metric_labels) == {"temp", "power", "energy", "steam", "flux", "fuel"}
+        assert set(win._metric_labels) == {"temp", "flux", "steam", "power", "total", "fuel"}
     finally:
         root.destroy()
 
@@ -407,5 +407,39 @@ def test_overview_global_steam_type_selector():
         win._set_all_steam_types("超浓密蒸汽")
         assert win.model.cell_at(2, 2).steam_type == "ULTRAHOTSTEAM"
         assert win.model.cell_at(2, 3).steam_type == "ULTRAHOTSTEAM"
+    finally:
+        root.destroy()
+
+
+def test_metrics_bar_titles_and_placeholders():
+    """下方 6 项：平均温度、平均通量、蒸汽(mB/s)、瞬时/累计发电(占位)、平均寿命。"""
+    win, root = _fresh()
+    try:
+        win.model.place(2, 2, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
+        win.on_model_changed()
+        win.engine.advance(1.0)
+        win._refresh_state()
+
+        def texts(w):
+            out = []
+            for ch in w.winfo_children():
+                try:
+                    if "text" in ch.keys():
+                        out.append(ch.cget("text"))
+                except Exception:
+                    pass
+                out.extend(texts(ch))
+            return out
+
+        titles = texts(win.metrics)
+        for title in ("反应堆平均温度", "平均中子通量", "蒸汽产量",
+                      "瞬时发电量", "累计发电量", "燃料平均寿命"):
+            assert title in titles
+
+        assert win._metric_labels["temp"].cget("text").endswith("°C")
+        assert win._metric_labels["steam"].cget("text").endswith("mB/s")
+        assert win._metric_labels["power"].cget("text") == "—"
+        assert win._metric_labels["total"].cget("text") == "—"
+        assert win._metric_labels["fuel"].cget("text").endswith("%")
     finally:
         root.destroy()

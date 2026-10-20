@@ -319,3 +319,22 @@ def test_boiler_steam_factor_ratio():
     s10 = b.steam_rate
     assert s1 > 0 and s10 > 0
     assert abs(s1 / s10 - 10.0) < 1e-6
+
+
+def test_avg_temperature_is_mean_and_avg_flux_is_per_rod():
+    m = ReactorModel(5, 5)
+    a = m.place(0, 0, MOD)
+    b = m.place(4, 4, MOD)
+    e = SimulationEngine(m)
+    a.temp = 100.0
+    b.temp = 300.0
+    e._update_state()
+    assert e.state.avg_temperature == 200.0
+    assert e.state.avg_flux == 0.0
+
+    m2 = ReactorModel(5, 5)
+    m2.place(2, 2, ROD, fuel=SRC)
+    e2 = SimulationEngine(m2)
+    e2.advance(5.0)
+    assert e2.state.avg_temperature > 20.0
+    assert e2.state.avg_flux > 0.0

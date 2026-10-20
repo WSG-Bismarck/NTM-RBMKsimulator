@@ -74,8 +74,9 @@ class MainWindow:
         self.metrics.pack_propagate(False)
         self._metric_labels = {}
         for i, (key, title) in enumerate([
-            ("temp", "堆芯温度"), ("power", "瞬时功率"), ("energy", "累计发电"),
-            ("steam", "蒸汽产量"), ("flux", "中子通量"), ("fuel", "燃料剩余"),
+            ("temp", "反应堆平均温度"), ("flux", "平均中子通量"),
+            ("steam", "蒸汽产量"), ("power", "瞬时发电量"),
+            ("total", "累计发电量"), ("fuel", "燃料平均寿命"),
         ]):
             box = tk.Frame(self.metrics, bg=theme.SURFACE2, bd=0)
             box.grid(row=i // 2, column=i % 2, sticky="nsew", padx=4, pady=4)
@@ -278,11 +279,11 @@ class MainWindow:
         self.sb_state.configure(text=level_text, fg=level_color)
         r = assess(self.engine)
         self.sb_safety.configure(text="预计安全运行时长 " + format_duration(r.time_to_meltdown))
-        self._metric_labels["temp"].configure(text=f"{s.temperature:.0f} °C")
-        self._metric_labels["power"].configure(text=f"{s.power:.0f} MW")
-        self._metric_labels["energy"].configure(text=f"{s.total_energy:.2f} MWh")
-        self._metric_labels["steam"].configure(text=f"{s.steam:.0f} t/h")
-        self._metric_labels["flux"].configure(text=f"{s.flux:.2f}")
+        self._metric_labels["temp"].configure(text=f"{s.avg_temperature:.0f} °C")
+        self._metric_labels["flux"].configure(text=f"{s.avg_flux:.2f}")
+        self._metric_labels["steam"].configure(text=f"{s.steam:.0f} mB/s")
+        self._metric_labels["power"].configure(text="—")
+        self._metric_labels["total"].configure(text="—")
         self._metric_labels["fuel"].configure(text=f"{s.fuel_remaining:.1f}%")
 
     def _refresh_all(self):
