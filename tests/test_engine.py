@@ -756,3 +756,23 @@ def test_column_temps_match_game_console_sampling():
     assert abs(refl.shown_temp - 134.64) < 0.2
     # 世界 tick 结束值会被后 tick 的邻柱再改一次，与显示快照必然不同
     assert abs(rod.temp - rod.shown_temp) > 10.0
+
+
+def test_fuel_diffusion_controls_core_to_shell_transfer():
+    """扩散值决定「芯→壳」传热快慢：同一根闪光铅，扩散大的壳温更高、芯温更低。"""
+    import dataclasses
+    from rbmk.model.components import FUELS
+    base = FUELS["rbmk_fuel_flashlead"]
+    out = {}
+    try:
+        for d in (0.02, 0.1):
+            FUELS["rbmk_fuel_flashlead"] = dataclasses.replace(base, diffusion=d)
+            m = ReactorModel(3, 3)
+            rod = m.place(1, 1, ROD_MOD, fuel="rbmk_fuel_flashlead")
+            e = SimulationEngine(m)
+            e.advance(1.0)                      # 冷启动 20 tick
+            out[d] = (rod.core_heat, rod.hull_heat)
+    finally:
+        FUELS["rbmk_fuel_flashlead"] = base
+    assert out[0.1][1] > out[0.02][1] * 1.5     # 壳温明显更高
+    assert out[0.1][0] < out[0.02][0]           # 芯温更低

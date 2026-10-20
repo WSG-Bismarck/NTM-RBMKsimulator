@@ -113,3 +113,13 @@ def test_fuel_names_match_in_game_lang():
         assert "§" not in ft.name_cn
         if ft.key != "rbmk_fuel_test":      # 测试燃料在语言文件里没有条目
             assert "RBMK" in ft.name_cn
+
+
+def test_fuel_diffusion_values_from_jar():
+    """扩散值来自 ItemRBMKRod.setDiffusion / 默认 0.02。"""
+    from rbmk.model.components import FUELS
+    assert FUELS["rbmk_fuel_heu235"].diffusion == 0.02      # 默认值
+    assert FUELS["rbmk_fuel_uzh"].diffusion == 0.1          # 铀氢锆
+    assert FUELS["rbmk_fuel_ra226be"].diffusion == 0.5      # 镭226-铍中子源
+    assert FUELS["rbmk_fuel_po210be"].diffusion == 0.05     # 钋210-铍中子源
+    assert FUELS["rbmk_fuel_empty"].diffusion == 0.0
