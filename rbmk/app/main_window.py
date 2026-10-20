@@ -372,7 +372,7 @@ class MainWindow:
         if beh == Behavior.FUEL:
             self._prop_row("芯温", "core")
             self._prop_row("壳温", "hull")
-        self._prop_row("热功率", "heat")
+        self._prop_row("热功率（TU/tick）", "heat")
         self._prop_row("邻接数", "neighbors")
         self._prop_row("被动冷却", "cooling")
         if beh == Behavior.FUEL:
