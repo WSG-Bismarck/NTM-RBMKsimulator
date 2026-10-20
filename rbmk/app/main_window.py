@@ -132,7 +132,6 @@ class MainWindow:
         self._tool_items = {}
         self._add_palette_group(inner, "工具", [("select", "选择"), ("erase", "擦除")], is_tool=True)
         self._add_palette_group(inner, "反应堆组件", CORE_COMPONENTS)
-        self._add_palette_group(inner, "控制 / 显示设备", AUX_COMPONENTS)
 
     def _add_palette_group(self, parent, title, items, is_tool=False):
         tk.Label(parent, text=title, bg=theme.SURFACE, fg=theme.MUTED,

@@ -5,11 +5,10 @@
 > 提取方式：解析 `.class` 常量池 + CFR 0.152 反编译（Java 8 JRE）
 > 用途：模拟引擎与界面组件的唯一数据依据
 
-## 1. 组件清单（可放入反应堆的 33 种 rbmk_* 方块）
+## 1. 组件清单（软件中保留的 18 种 rbmk_* 方块）
 
 来源：`com/hbm/blocks/ModBlocks`（全部 `rbmk_*` 方块）+ `assets/hbm/lang/zh_CN.lang`（标准中文名）
-
-### 1.1 反应堆核心柱子（22）
+说明：jar 内共有 33 个 `rbmk_*` 方块；按需求排除自动装填机、ReaSim 进出水口、蒸汽导出器，以及全部控制/显示设备后，保留 18 种核心组件。
 
 | 方块 ID | 标准中文名 |
 |---|---|
@@ -31,26 +30,6 @@
 | rbmk_cooler | RBMK冷却器 |
 | rbmk_blank | RBMK反应堆结构柱 |
 | rbmk_heater | RBMK流体加热器 |
-| rbmk_autoloader | RBMK燃料自动装填机 |
-| rbmk_steam_inlet | RBMK ReaSim进水口 |
-| rbmk_steam_outlet | RBMK ReaSim蒸汽出口 |
-| rbmk_loader | RBMK反应堆蒸汽导出器 |
-
-### 1.2 控制 / 显示设备（11）
-
-| 方块 ID | 标准中文名 |
-|---|---|
-| rbmk_console | RBMK石墨式反应堆控制台 |
-| rbmk_crane_console | RBMK起重机控制台 |
-| rbmk_display | RBMK显示面板 |
-| rbmk_display_blank | 无线红石信号空白面板 |
-| rbmk_gauge | 无线红石信号流量控制器面板 |
-| rbmk_graph | 无线红石信号图表面板 |
-| rbmk_indicator | 无线红石信号指示灯 |
-| rbmk_key_pad | 无线红石信号按钮面板 |
-| rbmk_lever | 无线红石信号拉杆 |
-| rbmk_numitron | 无线红石信号数字显示器 |
-| rbmk_terminal | 无线红石信号发信终端 |
 
 > 说明：
 > - 其余 `rbmk_*` 方块（`rbmk_top` / `rbmk_blank_top` / `rbmk_element*` / `rbmk_smooth` / `rbmk_debris*`）是柱顶、内部元素、装饰或残骸，不作为独立组件。
@@ -132,7 +111,7 @@
 ## 6. 模拟机制（v1 模型说明与保真度）
 
 ### 6.1 已从 jar 精确得到（EXACT）
-- 组件清单（33 种：22 核心 + 11 控制/显示）
+- 组件清单（软件保留 18 种核心组件；jar 内共 33 个 rbmk_* 方块）
 - 控制棒分组（5 色）
 - 燃料棒清单（34 项）
 - RBMK 参数键清单（25 项）

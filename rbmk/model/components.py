@@ -1,7 +1,9 @@
 """组件、控制组、燃料类型定义。
 
 数据来源：HBM-NTM-.1.0.27_X5846.jar
-- 组件方块清单：com/hbm/blocks/ModBlocks 中全部 rbmk_* 方块；中文名取自 assets/hbm/lang/zh_CN.lang
+- 组件：从 ModBlocks 的 33 个 rbmk_* 方块中，移除自动装填机、ReaSim 进出水口、
+  蒸汽导出器以及全部控制/显示设备后，保留 18 种反应堆核心组件；
+  中文名取自 assets/hbm/lang/zh_CN.lang
 - 控制组 5 色：TileEntityRBMKControlManual$RBMKColor
 - 燃料 34 种：ModItems 中 rbmk_fuel_* 注册，逐项精确提取（见 fuel_data.py）
 """
@@ -14,7 +16,7 @@ from rbmk.model.fuel_data import FUEL_DATA
 
 
 class ComponentType(str, Enum):
-    # ---- 反应堆核心柱子（22）----
+    # ---- 反应堆核心组件（18）----
     RBMK_ROD = "rbmk_rod"
     RBMK_ROD_MOD = "rbmk_rod_mod"
     RBMK_ROD_REASIM = "rbmk_rod_reasim"
@@ -33,22 +35,6 @@ class ComponentType(str, Enum):
     RBMK_COOLER = "rbmk_cooler"
     RBMK_BLANK = "rbmk_blank"
     RBMK_HEATER = "rbmk_heater"
-    RBMK_AUTOLOADER = "rbmk_autoloader"
-    RBMK_STEAM_INLET = "rbmk_steam_inlet"
-    RBMK_STEAM_OUTLET = "rbmk_steam_outlet"
-    RBMK_LOADER = "rbmk_loader"
-    # ---- 控制 / 显示设备（11）----
-    RBMK_CONSOLE = "rbmk_console"
-    RBMK_CRANE_CONSOLE = "rbmk_crane_console"
-    RBMK_DISPLAY = "rbmk_display"
-    RBMK_DISPLAY_BLANK = "rbmk_display_blank"
-    RBMK_GAUGE = "rbmk_gauge"
-    RBMK_GRAPH = "rbmk_graph"
-    RBMK_INDICATOR = "rbmk_indicator"
-    RBMK_KEY_PAD = "rbmk_key_pad"
-    RBMK_LEVER = "rbmk_lever"
-    RBMK_NUMITRON = "rbmk_numitron"
-    RBMK_TERMINAL = "rbmk_terminal"
 
 
 # 标准中文名（assets/hbm/lang/zh_CN.lang） + 界面颜色
@@ -71,21 +57,6 @@ COMPONENT_INFO: dict[ComponentType, tuple[str, str]] = {
     ComponentType.RBMK_COOLER: ("RBMK冷却器", "#38b2a6"),
     ComponentType.RBMK_BLANK: ("RBMK反应堆结构柱", "#3a4149"),
     ComponentType.RBMK_HEATER: ("RBMK流体加热器", "#d08a4a"),
-    ComponentType.RBMK_AUTOLOADER: ("RBMK燃料自动装填机", "#7fbf7f"),
-    ComponentType.RBMK_STEAM_INLET: ("RBMK ReaSim进水口", "#4f9de8"),
-    ComponentType.RBMK_STEAM_OUTLET: ("RBMK ReaSim蒸汽出口", "#e08a4a"),
-    ComponentType.RBMK_LOADER: ("RBMK反应堆蒸汽导出器", "#6ab0d0"),
-    ComponentType.RBMK_CONSOLE: ("RBMK石墨式反应堆控制台", "#c0c8d0"),
-    ComponentType.RBMK_CRANE_CONSOLE: ("RBMK起重机控制台", "#b0b8c0"),
-    ComponentType.RBMK_DISPLAY: ("RBMK显示面板", "#4fc3e8"),
-    ComponentType.RBMK_DISPLAY_BLANK: ("无线红石信号空白面板", "#607080"),
-    ComponentType.RBMK_GAUGE: ("无线红石信号流量控制器面板", "#607080"),
-    ComponentType.RBMK_GRAPH: ("无线红石信号图表面板", "#607080"),
-    ComponentType.RBMK_INDICATOR: ("无线红石信号指示灯", "#607080"),
-    ComponentType.RBMK_KEY_PAD: ("无线红石信号按钮面板", "#607080"),
-    ComponentType.RBMK_LEVER: ("无线红石信号拉杆", "#607080"),
-    ComponentType.RBMK_NUMITRON: ("无线红石信号数字显示器", "#607080"),
-    ComponentType.RBMK_TERMINAL: ("无线红石信号发信终端", "#607080"),
 }
 
 # 网格内的简写标记
@@ -93,7 +64,7 @@ COMPONENT_SHORT: dict[ComponentType, str] = {
     ComponentType.RBMK_ROD: "燃",
     ComponentType.RBMK_ROD_MOD: "燃M",
     ComponentType.RBMK_ROD_REASIM: "燃R",
-    ComponentType.RBMK_ROD_REASIM_MOD: "燃M",
+    ComponentType.RBMK_ROD_REASIM_MOD: "燃RM",
     ComponentType.RBMK_CONTROL: "控",
     ComponentType.RBMK_CONTROL_AUTO: "自控",
     ComponentType.RBMK_CONTROL_MOD: "控M",
@@ -108,21 +79,6 @@ COMPONENT_SHORT: dict[ComponentType, str] = {
     ComponentType.RBMK_COOLER: "冷",
     ComponentType.RBMK_BLANK: "结",
     ComponentType.RBMK_HEATER: "热",
-    ComponentType.RBMK_AUTOLOADER: "装",
-    ComponentType.RBMK_STEAM_INLET: "进",
-    ComponentType.RBMK_STEAM_OUTLET: "出",
-    ComponentType.RBMK_LOADER: "导",
-    ComponentType.RBMK_CONSOLE: "台",
-    ComponentType.RBMK_CRANE_CONSOLE: "吊",
-    ComponentType.RBMK_DISPLAY: "显",
-    ComponentType.RBMK_DISPLAY_BLANK: "空",
-    ComponentType.RBMK_GAUGE: "流",
-    ComponentType.RBMK_GRAPH: "图",
-    ComponentType.RBMK_INDICATOR: "灯",
-    ComponentType.RBMK_KEY_PAD: "键",
-    ComponentType.RBMK_LEVER: "杆",
-    ComponentType.RBMK_NUMITRON: "数",
-    ComponentType.RBMK_TERMINAL: "终",
 }
 
 
@@ -138,10 +94,6 @@ class Behavior(str, Enum):
     COOLER = "cooler"
     BLANK = "blank"
     HEATER = "heater"
-    AUTOLOADER = "autoloader"
-    STEAM = "steam"
-    LOADER = "loader"
-    AUX = "aux"
 
 
 COMPONENT_BEHAVIOR: dict[ComponentType, Behavior] = {
@@ -163,25 +115,10 @@ COMPONENT_BEHAVIOR: dict[ComponentType, Behavior] = {
     ComponentType.RBMK_COOLER: Behavior.COOLER,
     ComponentType.RBMK_BLANK: Behavior.BLANK,
     ComponentType.RBMK_HEATER: Behavior.HEATER,
-    ComponentType.RBMK_AUTOLOADER: Behavior.AUTOLOADER,
-    ComponentType.RBMK_STEAM_INLET: Behavior.STEAM,
-    ComponentType.RBMK_STEAM_OUTLET: Behavior.STEAM,
-    ComponentType.RBMK_LOADER: Behavior.LOADER,
-    ComponentType.RBMK_CONSOLE: Behavior.AUX,
-    ComponentType.RBMK_CRANE_CONSOLE: Behavior.AUX,
-    ComponentType.RBMK_DISPLAY: Behavior.AUX,
-    ComponentType.RBMK_DISPLAY_BLANK: Behavior.AUX,
-    ComponentType.RBMK_GAUGE: Behavior.AUX,
-    ComponentType.RBMK_GRAPH: Behavior.AUX,
-    ComponentType.RBMK_INDICATOR: Behavior.AUX,
-    ComponentType.RBMK_KEY_PAD: Behavior.AUX,
-    ComponentType.RBMK_LEVER: Behavior.AUX,
-    ComponentType.RBMK_NUMITRON: Behavior.AUX,
-    ComponentType.RBMK_TERMINAL: Behavior.AUX,
 }
 
-CORE_COMPONENTS: list[ComponentType] = [c for c in ComponentType if COMPONENT_BEHAVIOR[c] != Behavior.AUX]
-AUX_COMPONENTS: list[ComponentType] = [c for c in ComponentType if COMPONENT_BEHAVIOR[c] == Behavior.AUX]
+CORE_COMPONENTS: list[ComponentType] = list(ComponentType)
+AUX_COMPONENTS: list[ComponentType] = []
 
 FUEL_COMPONENTS: tuple[ComponentType, ...] = tuple(
     c for c in ComponentType if COMPONENT_BEHAVIOR[c] == Behavior.FUEL

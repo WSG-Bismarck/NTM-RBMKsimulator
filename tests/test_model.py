@@ -13,11 +13,26 @@ from rbmk.model.components import (
 from rbmk.model.reactor import ReactorModel
 
 
-def test_component_count_is_33():
-    assert len(ComponentType) == 33
-    assert len(COMPONENT_INFO) == 33
-    assert len(CORE_COMPONENTS) == 22
-    assert len(AUX_COMPONENTS) == 11
+def test_component_count_is_18():
+    assert len(ComponentType) == 18
+    assert len(COMPONENT_INFO) == 18
+
+
+def test_removed_components_absent():
+    names = {c.value for c in ComponentType}
+    removed = [
+        "rbmk_autoloader", "rbmk_steam_inlet", "rbmk_steam_outlet", "rbmk_loader",
+        "rbmk_console", "rbmk_crane_console", "rbmk_display", "rbmk_display_blank",
+        "rbmk_gauge", "rbmk_graph", "rbmk_indicator", "rbmk_key_pad", "rbmk_lever",
+        "rbmk_numitron", "rbmk_terminal",
+    ]
+    for gone in removed:
+        assert gone not in names
+
+
+def test_component_groups_and_names():
+    assert len(CORE_COMPONENTS) == 18
+    assert len(AUX_COMPONENTS) == 0
     # 名称必须来自 zh_CN.lang（抽查）
     assert COMPONENT_INFO[ComponentType.RBMK_ROD][0] == "RBMK反应堆燃料通道"
     assert COMPONENT_INFO[ComponentType.RBMK_CONTROL][0] == "RBMK反应堆控制棒"

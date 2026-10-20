@@ -16,7 +16,7 @@ def test_six_zones_and_counts():
         assert hasattr(win, "chart")
         assert hasattr(win, "panel")
         assert hasattr(win, "sb_state")
-        assert len(win._palette_items) == 33
+        assert len(win._palette_items) == 18
         assert len(win._tab_btns) == 4
         # 6 项关键数值标签
         assert set(win._metric_labels) == {"temp", "power", "energy", "steam", "flux", "fuel"}
