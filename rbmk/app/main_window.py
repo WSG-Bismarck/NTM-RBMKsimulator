@@ -351,6 +351,8 @@ class MainWindow:
             om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
                          highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
             om.pack(fill="x")
+        elif beh == Behavior.CONTROL and cell.comp == ComponentType.RBMK_CONTROL_AUTO:
+            self._auto_control_ui(p, cell)
         elif beh == Behavior.CONTROL:
             tk.Label(p, text="控制组", bg=theme.SURFACE, fg=theme.MUTED,
                      font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(2, 2))
@@ -406,7 +408,8 @@ class MainWindow:
             self._prop_row("裂变所需中子类型", "ntype_in")
             self._prop_row("裂变产生中子类型", "ntype_out")
         if beh == Behavior.CONTROL:
-            self._prop_row("有效 level", "level")
+            auto = cell.comp == ComponentType.RBMK_CONTROL_AUTO
+            self._prop_row("当前插入度" if auto else "有效 level", "level")
         if beh == Behavior.BOILER:
             self._prop_row("每刻蒸汽产生量", "steam")
         if beh == Behavior.HEATER:
@@ -462,7 +465,10 @@ class MainWindow:
                 "ntype_out": NTYPE_NAMES_CN.get(ft.r_type.value, ft.r_type.value),
             })
         if behavior_of(cell.comp) == Behavior.CONTROL:
-            vals["level"] = f"{1.0 - self.model.effective_insertion(cell) / 100.0:.2f}"
+            if cell.comp == ComponentType.RBMK_CONTROL_AUTO:
+                vals["level"] = f"{cell.level:.3f}（目标 {cell.target_level:.3f}）"
+            else:
+                vals["level"] = f"{1.0 - self.model.effective_insertion(cell) / 100.0:.2f}"
         if behavior_of(cell.comp) == Behavior.BOILER:
             vals["steam"] = f"{cell.steam_rate:.0f} mB/tick"
         if behavior_of(cell.comp) == Behavior.HEATER:
@@ -588,6 +594,44 @@ class MainWindow:
                 break
         cell.has_rod = cell.fuel_type is not None and cell.fuel != "rbmk_fuel_empty"
         self.engine.state.melt_temp = self.engine._melt_threshold()
+        self._refresh_prop_values()
+        self.grid_editor.redraw()
+
+    AUTO_FUNC_NAMES = {"LINEAR": "线性", "QUAD_UP": "上凸平方", "QUAD_DOWN": "下凹平方"}
+
+    def _auto_control_ui(self, p, cell):
+        """自动控制棒参数（TileEntityRBMKControlAuto）：温度区间 -> 插入度区间。"""
+        tk.Label(p, text="控制函数", bg=theme.SURFACE, fg=theme.MUTED,
+                 font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(2, 2))
+        var = tk.StringVar(value=self.AUTO_FUNC_NAMES.get(cell.auto_func, "线性"))
+        om = tk.OptionMenu(p, var, *self.AUTO_FUNC_NAMES.values(),
+                           command=lambda v: self._set_auto_func(cell, v))
+        om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
+                     highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
+        om.pack(fill="x")
+        for label, attr, lo, hi in (
+            ("温度下限（°C）", "heat_lower", 0, 1500),
+            ("温度上限（°C）", "heat_upper", 0, 1500),
+            ("温度下限对应插入度（%）", "level_lower", 0, 100),
+            ("温度上限对应插入度（%）", "level_upper", 0, 100),
+        ):
+            tk.Label(p, text=label, bg=theme.SURFACE, fg=theme.MUTED,
+                     font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(6, 0))
+            sc = tk.Scale(p, from_=lo, to=hi, orient="horizontal", showvalue=True, resolution=1,
+                          bg=theme.SURFACE, fg=theme.INK, troughcolor=theme.BORDER,
+                          highlightthickness=0, font=theme.FONT_SMALL,
+                          command=lambda v, a=attr: self._set_auto_param(cell, a, v))
+            sc.set(getattr(cell, attr))
+            sc.pack(fill="x")
+
+    def _set_auto_param(self, cell, attr, value):
+        setattr(cell, attr, float(value))
+        self._refresh_prop_values()
+        self.grid_editor.redraw()
+
+    def _set_auto_func(self, cell, name):
+        rev = {v: k for k, v in self.AUTO_FUNC_NAMES.items()}
+        cell.auto_func = rev.get(name, "LINEAR")
         self._refresh_prop_values()
         self.grid_editor.redraw()
 

@@ -18,6 +18,7 @@ from rbmk.model.components import (
     REASIM_COMPONENTS,
     STEAM_TYPES,
     Behavior,
+    ComponentType,
     FuelType,
     NType,
     behavior_of,
@@ -211,7 +212,10 @@ class SimulationEngine:
                     continue
 
             if b == Behavior.CONTROL:
-                level = 1.0 - self.model.effective_insertion(cell) / 100.0
+                if cell.comp == ComponentType.RBMK_CONTROL_AUTO:
+                    level = cell.level          # 自动棒：模组 level 即透过率 getMult()
+                else:
+                    level = 1.0 - self.model.effective_insertion(cell) / 100.0
                 if level > 0.0:
                     flux *= level
                     continue
@@ -400,6 +404,33 @@ class SimulationEngine:
         cell.heater_heat = produced * (hf.cool_heat / hf.cool_amount) * hf.cool_eff
         cell.temp -= hf.heat_req * ops / tu_per_degree * hf.eff
 
+    def _auto_control_step(self, cell) -> None:
+        """自动控制棒（TileEntityRBMKControlAuto）：按自身柱温算目标插入度，再按 0.00277/tick 逼近。"""
+        p = self.p
+        h = cell.temp
+        lo = min(cell.heat_lower, cell.heat_upper)
+        hi = max(cell.heat_lower, cell.heat_upper)
+        if h < lo:
+            faux = cell.level_lower
+        elif h > hi:
+            faux = cell.level_upper
+        elif cell.auto_func == "QUAD_UP":
+            denom = cell.heat_upper - cell.heat_lower
+            faux = ((h - cell.heat_lower) / denom) ** 2 * (cell.level_upper - cell.level_lower) + cell.level_lower if denom else cell.level_lower
+        elif cell.auto_func == "QUAD_DOWN":
+            denom = cell.heat_lower - cell.heat_upper
+            faux = ((h - cell.heat_upper) / denom) ** 2 * (cell.level_lower - cell.level_upper) + cell.level_upper if denom else cell.level_upper
+        else:  # LINEAR
+            denom = cell.heat_upper - cell.heat_lower
+            faux = (h - cell.heat_lower) * ((cell.level_upper - cell.level_lower) / denom) + cell.level_lower if denom else cell.level_lower
+        target = _clamp(faux * 0.01, 0.0, 1.0)
+        cell.target_level = target
+        speed = 0.00277 * p["control_speed_mod"]
+        if cell.level < target:
+            cell.level = min(target, cell.level + speed)
+        elif cell.level > target:
+            cell.level = max(target, cell.level - speed)
+
     def _heat_tick(self) -> None:
         """逐柱执行，顺序与模组 TE tick 一致：
         锅炉/加热器自身逻辑 → moveHeat（自身+四邻）→ 被动冷却 → ReaSim 产汽。"""
@@ -419,6 +450,8 @@ class SimulationEngine:
             emitted = None
             if b == Behavior.FUEL and cell.has_rod and cell.fuel_type is not None:
                 emitted = self._rod_step(cell)
+            elif b == Behavior.CONTROL and cell.comp == ComponentType.RBMK_CONTROL_AUTO:
+                self._auto_control_step(cell)
             elif not reasim and b == Behavior.BOILER:
                 steam += self._boil_one(cell, hpm)
             elif b == Behavior.HEATER:

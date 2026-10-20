@@ -35,6 +35,19 @@
 > - 其余 `rbmk_*` 方块（`rbmk_top` / `rbmk_blank_top` / `rbmk_element*` / `rbmk_smooth` / `rbmk_debris*`）是柱顶、内部元素、装饰或残骸，不作为独立组件。
 > - 旧版 `TileEntityRBMKConsole$ColumnType`（14 种）是控制台内部用于分类的枚举，与实际可放置方块不是一一对应；本清单已按 ModBlocks 替换。
 
+## 2.1 自动控制棒（TileEntityRBMKControlAuto）
+
+- 字段：`function`（LINEAR / QUAD_UP / QUAD_DOWN）、`heatLower`、`heatUpper`、`levelLower`、`levelUpper`（插入度百分比 0..100）。
+- 每 tick 用自己的**柱温** `this.heat` 映射出 `fauxLevel`：
+  - `heat < min(heatLower, heatUpper)` → `levelLower`
+  - `heat > max(...)` → `levelUpper`
+  - `LINEAR`：`(heat − heatLower) × ((levelUpper − levelLower) / (heatUpper − heatLower)) + levelLower`
+  - `QUAD_UP`：`((heat − heatLower)/(heatUpper − heatLower))² × (levelUpper − levelLower) + levelLower`
+  - `QUAD_DOWN`：`((heat − heatUpper)/(heatLower − heatUpper))² × (levelLower − levelUpper) + levelUpper`
+- `targetLevel = clamp(fauxLevel × 0.01, 0, 1)`；`level` 每 tick 朝目标移动 **0.00277 × controlSpeed**（满行程约 361 tick ≈ 18 秒），到目标即停。
+- `level` 就是中子透过率（`getMult() = level`）：`level = 0` 完全阻挡，`level = 1` 完全透过。
+- 软件默认参数（模组 NBT 默认全 0，会导致完全阻挡，故给可用的初始值）：`heatLower=0、heatUpper=1000、levelLower=100、levelUpper=0、LINEAR`。
+
 ## 2. 控制棒分组（RBMKColor，5 组）
 
 来源：`com/hbm/tileentity/machine/rbmk/TileEntityRBMKControlManual$RBMKColor`

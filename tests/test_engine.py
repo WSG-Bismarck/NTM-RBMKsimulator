@@ -874,3 +874,57 @@ def test_electricity_zero_without_steam():
     e.advance(1.0)
     assert e.state.electricity == 0.0
     assert e.state.total_energy == 0.0
+
+
+def test_auto_control_rod_maps_heat_and_moves_at_mod_speed():
+    """自动控制棒：温度区间线性映射到插入度，并按 0.00277/tick 逼近目标。"""
+    m = ReactorModel(3, 3)
+    rod = m.place(1, 1, ComponentType.RBMK_CONTROL_AUTO)
+    e = SimulationEngine(m)
+    rod.heat_lower, rod.heat_upper = 0.0, 1000.0
+    rod.level_lower, rod.level_upper = 100.0, 0.0
+    rod.temp = 500.0
+    rod.level = 0.0
+    e._begin_tick()
+    e._heat_tick()
+    assert abs(rod.target_level - 0.5) < 1e-9          # (500-0)/1000 → level 50%
+    assert abs(rod.level - 0.00277) < 1e-9             # 一个 tick 只走 0.277%
+    for _ in range(4000):
+        rod.temp = 500.0
+        e._begin_tick()
+        e._heat_tick()
+    assert abs(rod.level - 0.5) < 1e-9
+
+
+def test_auto_control_rod_quadratic_functions():
+    """QUAD_UP / QUAD_DOWN 与 TileEntityRBMKControlAuto 一致。"""
+    m = ReactorModel(3, 3)
+    rod = m.place(1, 1, ComponentType.RBMK_CONTROL_AUTO)
+    e = SimulationEngine(m)
+    rod.heat_lower, rod.heat_upper = 0.0, 1000.0
+    rod.level_lower, rod.level_upper = 0.0, 100.0
+    rod.temp = 500.0
+    rod.auto_func = "QUAD_UP"
+    e._begin_tick(); e._heat_tick()
+    assert abs(rod.target_level - 0.25) < 1e-9          # ((500-0)/1000)^2 = 0.25
+    rod.auto_func = "QUAD_DOWN"
+    rod.temp = 500.0
+    e._begin_tick(); e._heat_tick()
+    assert abs(rod.target_level - 0.75) < 1e-9
+
+
+def test_auto_control_rod_attenuates_flux_by_level():
+    """自动棒的 level 就是中子透过率（模组 getMult()）。"""
+    m = ReactorModel(3, 5)
+    m.place(2, 1, ROD, fuel=SRC)
+    auto = m.place(2, 2, ComponentType.RBMK_CONTROL_AUTO)
+    dst = m.place(2, 3, ROD, fuel=HEU)
+    e = SimulationEngine(m)
+    auto.heat_lower, auto.heat_upper = 0.0, 1000.0
+    auto.level_lower = auto.level_upper = 50.0          # 任何温度都指向 0.5
+    auto.level = 0.5
+    e._begin_tick()
+    e._heat_tick()
+    e._end_tick()
+    assert abs(auto.level - 0.5) < 1e-9
+    assert abs(dst.flux_q - 25.0) < 1e-6                # 源棒 50 × 0.5

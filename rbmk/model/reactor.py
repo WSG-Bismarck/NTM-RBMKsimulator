@@ -26,6 +26,14 @@ class Cell:
     fuel: Optional[str] = None          # 燃料 key（燃料类柱子）
     group: Optional[ControlGroup] = None               # None = 空置（默认，不受分组控制）
     insertion: Optional[float] = None   # 单根插入深度 0..100；None=用分组/全局
+    # 自动控制棒（rbmk_control_auto）
+    level: float = 0.0                  # 当前插入度 = 中子透过率（模组 getMult()）
+    heat_lower: float = 0.0             # 温度下限
+    heat_upper: float = 1000.0          # 温度上限
+    level_lower: float = 100.0          # 温度下限对应的插入度（0..100）
+    level_upper: float = 0.0            # 温度上限对应的插入度（0..100）
+    auto_func: str = "LINEAR"           # LINEAR / QUAD_UP / QUAD_DOWN
+    target_level: float = 0.0           # 本 tick 由温度映射出的目标透过率（供显示）
     burnup: float = 0.0                 # 0..1
     xenon: float = 0.0                  # 0..100（与模组一致）
     temp: float = 25.0
@@ -65,6 +73,12 @@ class Cell:
             "steam_type": self.steam_type,
             "heater_fluid": self.heater_fluid,
             "seq": self.seq,
+            "level": self.level,
+            "heat_lower": self.heat_lower,
+            "heat_upper": self.heat_upper,
+            "level_lower": self.level_lower,
+            "level_upper": self.level_upper,
+            "auto_func": self.auto_func,
         }
 
     @classmethod
@@ -80,6 +94,12 @@ class Cell:
             steam_type=d.get("steam_type", "STEAM"),
             heater_fluid=d.get("heater_fluid", "COOLANT"),
             seq=int(d.get("seq", 0)),
+            level=float(d.get("level", 0.0)),
+            heat_lower=float(d.get("heat_lower", 0.0)),
+            heat_upper=float(d.get("heat_upper", 1000.0)),
+            level_lower=float(d.get("level_lower", 100.0)),
+            level_upper=float(d.get("level_upper", 0.0)),
+            auto_func=d.get("auto_func", "LINEAR"),
         )
 
 
