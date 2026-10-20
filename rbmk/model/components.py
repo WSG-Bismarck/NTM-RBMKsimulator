@@ -200,6 +200,34 @@ STEAM_TYPES: dict[str, SteamType] = {
 }
 
 
+@dataclass(frozen=True)
+class HeatFluid:
+    """RBMK 流体加热器可加热的流体（FT_Heatable，HEATEXCHANGER 效率 > 0）。"""
+    key: str
+    name_cn: str
+    out_key: str
+    out_name_cn: str
+    amount_req: float      # 每次操作消耗的输入流体（mB）
+    amount_produced: float # 每次操作产出的热流体（mB）
+    heat_req: float        # 每次操作需要的热量（TU）
+    out_temp: float        # 产出流体的温度（FluidType.temperature）
+    eff: float             # HEATEXCHANGER 效率
+
+
+# 数据取自 Fluids.java 的 FT_Heatable 注册（addStep(heat, req, type, prod)）
+HEAT_FLUIDS: dict[str, HeatFluid] = {
+    "WATER": HeatFluid("WATER", "水", "STEAM", "蒸汽", 1, 100, 200, 100, 0.25),
+    "OIL": HeatFluid("OIL", "原油", "HOTOIL", "热原油", 1, 1, 10, 350, 1.0),
+    "OIL_DS": HeatFluid("OIL_DS", "脱硫原油", "HOTOIL_DS", "热的脱硫原油", 1, 1, 10, 350, 1.0),
+    "CRACKOIL": HeatFluid("CRACKOIL", "裂化油", "HOTCRACKOIL", "热裂化油", 1, 1, 10, 350, 1.0),
+    "CRACKOIL_DS": HeatFluid("CRACKOIL_DS", "脱硫裂化油", "HOTCRACKOIL_DS", "热的脱硫裂化油", 1, 1, 10, 350, 1.0),
+    "COOLANT": HeatFluid("COOLANT", "冷却液", "COOLANT_HOT", "热冷却液", 1, 1, 300, 600, 1.0),
+    "PERFLUOROMETHYL": HeatFluid("PERFLUOROMETHYL", "四氟甲烷", "PERFLUOROMETHYL_HOT", "热四氟甲烷", 1, 1, 300, 250, 1.0),
+    "MUG": HeatFluid("MUG", "Mug牌树根饮料", "MUG_HOT", "热的Mug牌树根饮料", 1, 1, 400, 500, 1.0),
+    "BLOOD": HeatFluid("BLOOD", "血", "BLOOD_HOT", "热的血", 1, 1, 500, 666, 1.0),
+}
+
+
 class RBMKType(str, Enum):
     ROD = "ROD"
     MODERATOR = "MODERATOR"

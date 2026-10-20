@@ -9,6 +9,7 @@ MOD = ComponentType.RBMK_MODERATOR
 REFL = ComponentType.RBMK_REFLECTOR
 ABS = ComponentType.RBMK_ABSORBER
 BOIL = ComponentType.RBMK_BOILER
+HEATER = ComponentType.RBMK_HEATER
 SRC = "rbmk_fuel_po210be"
 HEU = "rbmk_fuel_heu235"
 
@@ -338,3 +339,41 @@ def test_avg_temperature_is_mean_and_avg_flux_is_per_rod():
     e2.advance(5.0)
     assert e2.state.avg_temperature > 20.0
     assert e2.state.avg_flux > 0.0
+
+
+# ---------- 流体加热器 ----------
+def test_heater_water_produces_steam():
+    m = ReactorModel(5, 5)
+    h = m.place(2, 2, HEATER)
+    e = SimulationEngine(m)
+    h.temp = 400.0
+    e._heat_tick()
+    assert abs(h.heater_rate - 100.0) < 1e-9   # 水：目标 100 mB/tick
+    assert h.temp < 400.0
+
+
+def test_heater_requires_heat_above_output_temperature():
+    m = ReactorModel(5, 5)
+    h = m.place(2, 2, HEATER)
+    e = SimulationEngine(m)
+    h.temp = 400.0
+    h.heater_fluid = "BLOOD"                   # 血：产出温度 666
+    e._heat_tick()
+    assert h.heater_rate == 0.0
+
+    h.temp = 900.0
+    e._heat_tick()
+    assert h.heater_rate > 0.0
+
+
+def test_heater_oil_rate_and_heat_removal():
+    m = ReactorModel(5, 5)
+    h = m.place(2, 2, HEATER)
+    e = SimulationEngine(m)
+    h.temp = 500.0
+    h.heater_fluid = "OIL"                     # 原油：每次 1→1，heatReq 10
+    h.heater_output = 200.0
+    e._heat_tick()
+    assert abs(h.heater_rate - 200.0) < 1e-9
+    # 热移除 = 10 * 200 / 2000 = 1.0
+    assert abs((500.0 - h.temp) - (2.5 + 1.0)) < 1e-9

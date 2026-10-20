@@ -178,6 +178,27 @@
 - 发电量按 `steam / 100` 折算，保持旧版标定（100 mB 蒸汽 ≈ 1 单位水）。
 - 蒸汽驱动涡轮发电。
 
+### 7.3.1 流体加热器（TileEntityRBMKHeater）
+- 只处理带 `FT_Heatable` 且 `HEATEXCHANGER` 效率 > 0 的流体，取 `getFirstStep()`。
+- 可用流体（9 种，中文名取自 `zh_CN.lang`）：
+
+| 输入 | 产出 | 每次消耗 mB | 每次产出 mB | heatReq | 产出温度 | 效率 |
+|---|---|---|---|---|---|---|
+| 水 WATER | 蒸汽 STEAM | 1 | 100 | 200 | 100 | 0.25 |
+| 原油 OIL | 热原油 HOTOIL | 1 | 1 | 10 | 350 | 1.0 |
+| 脱硫原油 OIL_DS | 热的脱硫原油 HOTOIL_DS | 1 | 1 | 10 | 350 | 1.0 |
+| 裂化油 CRACKOIL | 热裂化油 HOTCRACKOIL | 1 | 1 | 10 | 350 | 1.0 |
+| 脱硫裂化油 CRACKOIL_DS | 热的脱硫裂化油 HOTCRACKOIL_DS | 1 | 1 | 10 | 350 | 1.0 |
+| 冷却液 COOLANT | 热冷却液 COOLANT_HOT | 1 | 1 | 300 | 600 | 1.0 |
+| 四氟甲烷 PERFLUOROMETHYL | 热四氟甲烷 PERFLUOROMETHYL_HOT | 1 | 1 | 300 | 250 | 1.0 |
+| Mug牌树根饮料 MUG | 热的Mug牌树根饮料 MUG_HOT | 1 | 1 | 400 | 500 | 1.0 |
+| 血 BLOOD | 热的血 BLOOD_HOT | 1 | 1 | 500 | 666 | 1.0 |
+
+- 每 tick：`tempRange = heat - 产出温度`；`TU_PER_DEGREE = 2000 × eff`；
+  `ops = min(目标产量 / amountProduced, tempRange × TU_PER_DEGREE / heatReq)`；
+  `heat -= heatReq × ops / TU_PER_DEGREE × eff`。
+- 软件把进/出罐视为无限直连，产量上限由属性面板「每刻加热流体产量」控制。
+
 ### 7.4 各组件的模拟作用（v3）
 | 组件 | 作用 |
 |---|---|

@@ -443,3 +443,35 @@ def test_metrics_bar_titles_and_placeholders():
         assert win._metric_labels["fuel"].cget("text").endswith("%")
     finally:
         root.destroy()
+
+
+def test_heater_prop_has_fluid_and_output_controls():
+    """流体加热器属性：流体类型下拉框 + 每刻加热流体产量可调。"""
+    win, root = _fresh()
+    try:
+        win.model.place(2, 2, ComponentType.RBMK_HEATER)
+        win.on_select((2, 2))
+
+        def texts(w):
+            out = []
+            for ch in w.winfo_children():
+                try:
+                    if "text" in ch.keys():
+                        out.append(ch.cget("text"))
+                except Exception:
+                    pass
+                out.extend(texts(ch))
+            return out
+
+        t = texts(win.panel)
+        assert "流体类型" in t
+        assert any("每刻加热流体产量" in s for s in t)
+
+        cell = win.model.cell_at(2, 2)
+        win._set_heater_fluid(cell, "血")
+        assert cell.heater_fluid == "BLOOD"
+        win._set_heater_output(cell, 250)
+        assert cell.heater_output == 250.0
+        assert "heater" in win._prop_labels
+    finally:
+        root.destroy()
