@@ -364,7 +364,6 @@ class MainWindow:
             self._prop_row("慢中子计数", "slow")
             self._prop_row("快中子占比", "ratio")
             self._prop_row("本柱输出通量", "outflux")
-            self._prop_row("燃耗", "burnup")
             self._prop_row("氙毒", "xenon")
             self._prop_row("剩余寿命", "life")
             self._prop_row("燃料熔点", "melt")

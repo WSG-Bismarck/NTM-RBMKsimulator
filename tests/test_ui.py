@@ -278,3 +278,16 @@ def test_prop_panel_hides_neutron_rows_for_non_fuel():
             assert key in win._prop_labels
     finally:
         root.destroy()
+
+
+def test_prop_panel_hides_burnup_for_fuel():
+    """燃料通道不再显示燃耗，但保留剩余寿命与氙毒。"""
+    win, root = _fresh()
+    try:
+        win.model.place(2, 2, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
+        win.on_select((2, 2))
+        assert "burnup" not in win._prop_labels
+        assert "life" in win._prop_labels
+        assert "xenon" in win._prop_labels
+    finally:
+        root.destroy()
