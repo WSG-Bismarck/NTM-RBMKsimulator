@@ -33,6 +33,7 @@ class Cell:
     flux: float = 0.0
     steam: float = 0.0
     steam_rate: float = 0.0            # 每 tick 产汽量
+    steam_type: str = "STEAM"          # 蒸汽类型（STEAM/HOTSTEAM/SUPERHOTSTEAM/ULTRAHOTSTEAM）
     water: float = 100.0
     # ---- 中子逐格状态（运行时）----
     flux_q: float = 0.0
@@ -56,6 +57,7 @@ class Cell:
             "burnup": self.burnup,
             "xenon": self.xenon,
             "temp": self.temp,
+            "steam_type": self.steam_type,
         }
 
     @classmethod
@@ -68,6 +70,7 @@ class Cell:
             burnup=float(d.get("burnup", 0.0)),
             xenon=float(d.get("xenon", 0.0)),
             temp=float(d.get("temp", 25.0)),
+            steam_type=d.get("steam_type", "STEAM"),
         )
 
 

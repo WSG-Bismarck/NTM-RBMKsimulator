@@ -12,7 +12,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from rbmk.model.components import Behavior, FuelType, NType, behavior_of
+from rbmk.model.components import STEAM_TYPES, Behavior, FuelType, NType, behavior_of
 from rbmk.model.reactor import ReactorModel
 
 AMBIENT = 20.0
@@ -32,7 +32,8 @@ DEFAULT_PARAMS = {
     "absorber_efficiency": 1.0,      # RBMKKeys: dialAbsorberEfficiency = 1.0
     "absorber_heat_conversion": 0.05,  # RBMKKeys: dialAbsorberHeatConversion = 0.05
     "boiler_heat_consumption": 0.1,  # RBMKKeys: dialBoilerHeatConsumption = 0.1
-    "boiler_capacity": 50.0,           # 每个锅炉每 tick 最多吸收的热量（供水能力，模型层）
+    "boiler_feed": 10000.0,          # 模组锅炉 feed 罐容量（MB），视为持续供水
+    "boiler_capacity": 50.0,           # 兼容旧参数（新公式不再使用）
     "control_speed_mod": 1.0,
     "reactivity_mod": 1.0,
     "surge_mod": 1.0,
@@ -280,20 +281,32 @@ class SimulationEngine:
 
         # 锅炉：热量 -> 蒸汽
         steam = 0.0
+        hpm = p["boiler_heat_consumption"]       # 0.1 热量 / MB 水
+        feed = p["boiler_feed"]
         for r, c, cell in cells:
             if behavior_of(cell.comp) != Behavior.BOILER:
                 continue
             cell.steam_rate = 0.0
-            if cell.temp < 100.0:
+            st = STEAM_TYPES.get(cell.steam_type, STEAM_TYPES["STEAM"])
+            # 模组：heatProvided = heat - getHeatFromSteam(当前蒸汽类型)
+            heat_provided = cell.temp - st.heat
+            if heat_provided <= 0.0:
                 continue
-            heat_available = min(cell.temp - 100.0, p["boiler_capacity"])
-            if heat_available <= 0:
-                continue
-            water = heat_available / p["boiler_heat_consumption"]
-            cell.temp -= heat_available
-            cell.steam += water
-            cell.steam_rate = water
-            steam += water
+            # 模组产汽公式（TileEntityRBMKBoiler.func_145845_h）
+            if st.key == "ULTRAHOTSTEAM":
+                made = heat_provided / hpm * 100.0 / st.factor
+                used = made / 100.0 * st.factor
+                if feed < used:
+                    made = feed * 100.0 / st.factor
+                    used = made / 100.0 * st.factor
+            else:
+                used = min(heat_provided / hpm, feed)
+                made = used * 100.0 / st.factor
+            cell.water = max(0.0, feed - used)
+            cell.steam += made
+            cell.steam_rate = made
+            cell.temp -= used * hpm
+            steam += made
         self._steam_tick = steam
 
         # 熔毁判定（满足任一即熔毁）：
@@ -325,8 +338,9 @@ class SimulationEngine:
         s.flux = total_flux
         s.temperature = max_temp
         s.temp_rate = (max_temp - prev_temp) / 0.05
-        s.steam = self._steam_tick * 20.0
-        s.electricity = s.steam * p["turbine_efficiency"] * p["power_scale"]
+        s.steam = self._steam_tick * 20.0          # mB/s（1 tick = 0.05 s）
+        # 蒸汽以 mB 计：100 mB 蒸汽 ≈ 旧模型 1 单位水，除以 100 保持发电量标定不变
+        s.electricity = s.steam / 100.0 * p["turbine_efficiency"] * p["power_scale"]
         s.total_energy += s.electricity * 0.05 / 3600.0
 
         if rods:

@@ -16,6 +16,7 @@ from rbmk.model.components import (
     FUELS,
     FUNCTION_NAMES_CN,
     NTYPE_NAMES_CN,
+    STEAM_TYPES,
     Behavior,
     ComponentType,
     ControlGroup,
@@ -376,6 +377,14 @@ class MainWindow:
         if beh == Behavior.CONTROL:
             self._prop_row("有效 level", "level")
         if beh == Behavior.BOILER:
+            tk.Label(p, text="蒸汽类型", bg=theme.SURFACE, fg=theme.MUTED,
+                     font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(6, 2))
+            svar = tk.StringVar(value=STEAM_TYPES.get(cell.steam_type, STEAM_TYPES["STEAM"]).name_cn)
+            om = tk.OptionMenu(p, svar, *[st.name_cn for st in STEAM_TYPES.values()],
+                               command=lambda v: self._set_steam_type(cell, v))
+            om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
+                         highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
+            om.pack(fill="x")
             self._prop_row("每刻蒸汽产生量", "steam")
         self._refresh_prop_values()
 
@@ -533,6 +542,13 @@ class MainWindow:
                 cell.group = g
                 break
         self.grid_editor.redraw()
+
+    def _set_steam_type(self, cell, name):
+        for st in STEAM_TYPES.values():
+            if st.name_cn == name:
+                cell.steam_type = st.key
+                break
+        self._refresh_prop_values()
 
     def _set_single(self, cell, v):
         cell.insertion = float(v)

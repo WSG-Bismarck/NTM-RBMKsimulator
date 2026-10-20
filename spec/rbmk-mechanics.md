@@ -166,8 +166,16 @@
   - 燃料的 `meltingPoint` 不再作为柱温熔毁线；非燃料柱只走第一条。
 
 ### 7.3 锅炉（TileEntityRBMKBoiler）
-- 热 > 100 时：`waterUsed = (heat - 100) / boilerHeatConsumption(0.1)`，受供水能力限制。
-- `steam += waterUsed`；`heat -= waterUsed × 0.1`。
+- 可产 **4 种蒸汽**（中文名取自 `zh_CN.lang`）：`STEAM` 蒸汽、`HOTSTEAM` 热蒸汽、`SUPERHOTSTEAM` 超热蒸汽、`ULTRAHOTSTEAM` 超浓密蒸汽。
+- `getHeatFromSteam(type)`（产汽所需最低柱温）：100 / 300 / 450 / 600。
+- `getFactorFromSteam(type)`（水→蒸汽倍率）：1 / 10 / 100 / 1000。
+- 每 tick：
+  - `heatProvided = heat - getHeatFromSteam(type)`；≤ 0 不产汽。
+  - 非超浓密：`waterUsed = min(heatProvided / 0.1, feed)`；`steamProduced = waterUsed * 100 / factor`。
+  - 超浓密：`steamProduced = heatProvided / 0.1 * 100 / factor`；`waterUsed = steamProduced / 100 * factor`；供水不足时按 `feed` 反算。
+  - `heat -= waterUsed * 0.1`。
+- 软件中 `feed` 视为持续供水（10000 MB），不模拟管道补水。
+- 发电量按 `steam / 100` 折算，保持旧版标定（100 mB 蒸汽 ≈ 1 单位水）。
 - 蒸汽驱动涡轮发电。
 
 ### 7.4 各组件的模拟作用（v3）

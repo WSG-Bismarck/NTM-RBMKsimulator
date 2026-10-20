@@ -344,3 +344,31 @@ def test_boiler_prop_shows_steam_per_tick():
         assert win._prop_labels["steam"].cget("text") == "0.00/tick"
     finally:
         root.destroy()
+
+
+def test_boiler_prop_has_steam_type_selector():
+    """锅炉属性里有蒸汽类型下拉框，可切换为模组四种蒸汽。"""
+    win, root = _fresh()
+    try:
+        win.model.place(2, 2, ComponentType.RBMK_BOILER)
+        win.on_select((2, 2))
+
+        def texts(w):
+            out = []
+            for ch in w.winfo_children():
+                try:
+                    if "text" in ch.keys():
+                        out.append(ch.cget("text"))
+                except Exception:
+                    pass
+                out.extend(texts(ch))
+            return out
+
+        assert "蒸汽类型" in texts(win.panel)
+        cell = win.model.cell_at(2, 2)
+        for name, key in (("蒸汽", "STEAM"), ("热蒸汽", "HOTSTEAM"),
+                          ("超热蒸汽", "SUPERHOTSTEAM"), ("超浓密蒸汽", "ULTRAHOTSTEAM")):
+            win._set_steam_type(cell, name)
+            assert cell.steam_type == key
+    finally:
+        root.destroy()

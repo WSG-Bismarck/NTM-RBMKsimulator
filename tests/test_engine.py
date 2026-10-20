@@ -249,9 +249,9 @@ def test_fuel_below_1500_does_not_melt():
 
 
 def test_any_column_above_1500_melts():
-    """条件1：任一组件（含锅炉等非燃料柱）柱温 > 1500 即熔毁。"""
+    """条件1：任一组件（含非燃料柱）柱温 > 1500 即熔毁。"""
     m = ReactorModel(5, 5)
-    cell = m.place(2, 2, BOIL)
+    cell = m.place(2, 2, MOD)
     e = SimulationEngine(m)
     cell.temp = 2000.0
     e._heat_tick()
@@ -280,3 +280,42 @@ def test_fuel_hull_below_melting_point_does_not_melt():
     e._heat_tick()
     e._update_state()
     assert not e.state.melted
+
+
+# ---------- 锅炉蒸汽类型 ----------
+def test_boiler_steam_type_threshold():
+    m = ReactorModel(5, 5)
+    b = m.place(2, 2, BOIL)
+    e = SimulationEngine(m)
+    b.temp = 400.0
+    e._heat_tick()
+    assert b.steam_rate > 0          # 蒸汽阈值 100
+    b.temp = 400.0
+    b.steam_type = "SUPERHOTSTEAM"   # 阈值 450
+    e._heat_tick()
+    assert b.steam_rate == 0.0
+
+
+def test_boiler_steam_formula_exact():
+    m = ReactorModel(5, 5)
+    b = m.place(2, 2, BOIL)
+    e = SimulationEngine(m)
+    b.temp = 502.5                   # 被动冷却 2.5 后为 500
+    e._heat_tick()
+    # heatProvided=400 → 用水 4000 → 蒸汽 4000*100/1
+    assert abs(b.steam_rate - 400000.0) < 1e-6
+
+
+def test_boiler_steam_factor_ratio():
+    m = ReactorModel(5, 5)
+    b = m.place(2, 2, BOIL)
+    e = SimulationEngine(m)
+    b.temp = 502.5                   # 冷却后 500，蒸汽 heatProvided=400
+    e._heat_tick()
+    s1 = b.steam_rate
+    b.temp = 702.5                   # 冷却后 700，热蒸汽 heatProvided=400
+    b.steam_type = "HOTSTEAM"
+    e._heat_tick()
+    s10 = b.steam_rate
+    assert s1 > 0 and s10 > 0
+    assert abs(s1 / s10 - 10.0) < 1e-6

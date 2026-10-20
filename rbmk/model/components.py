@@ -182,6 +182,24 @@ FUNCTION_NAMES_CN: dict[str, str] = {
 }
 
 
+@dataclass(frozen=True)
+class SteamType:
+    """RBMK 蒸汽管道可产出的蒸汽类型（TileEntityRBMKBoiler）。"""
+    key: str
+    name_cn: str
+    heat: float      # getHeatFromSteam()：产汽所需的最低柱温
+    factor: float    # getFactorFromSteam()：水 -> 蒸汽的压缩倍率
+
+
+# 中文名取自 jar 内 assets/hbm/lang/zh_CN.lang 的 hbmfluid.*
+STEAM_TYPES: dict[str, SteamType] = {
+    "STEAM": SteamType("STEAM", "蒸汽", 100.0, 1.0),
+    "HOTSTEAM": SteamType("HOTSTEAM", "热蒸汽", 300.0, 10.0),
+    "SUPERHOTSTEAM": SteamType("SUPERHOTSTEAM", "超热蒸汽", 450.0, 100.0),
+    "ULTRAHOTSTEAM": SteamType("ULTRAHOTSTEAM", "超浓密蒸汽", 600.0, 1000.0),
+}
+
+
 class RBMKType(str, Enum):
     ROD = "ROD"
     MODERATOR = "MODERATOR"

@@ -64,3 +64,13 @@ def test_export_is_importable():
     text = save_load.to_json(m)
     m2 = save_load.from_json(text)
     assert m2.to_dict() == m.to_dict()
+
+
+def test_steam_type_roundtrip(tmp_path):
+    """锅炉蒸汽类型随设计文件保存/导入。"""
+    m = ReactorModel(rows=5, cols=5)
+    m.place(2, 2, ComponentType.RBMK_BOILER, steam_type="ULTRAHOTSTEAM")
+    p = tmp_path / "steam.json"
+    save_load.save(m, p)
+    m2 = save_load.load(p)
+    assert m2.cell_at(2, 2).steam_type == "ULTRAHOTSTEAM"
