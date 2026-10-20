@@ -63,13 +63,15 @@ def column_overlays(cell, model, max_heat: float = MAX_HEAT):
             fh = 0 if melt <= 0 else int(min(max(math.ceil((cell.hull_heat - 20.0) * 8.0 / melt), 0), 8))
             fe = int(min(max(math.ceil((1.0 - cell.burnup) * 8.0), 0), 8))
             fx = int(min(max(math.ceil(cell.xenon * 8.0 / 100.0), 0), 8))
-            out.append((1, 9 - fh, 2, fh, C_SKIN))
-            out.append((4, 9 - fe, 2, fe, C_ENRICH))
-            out.append((7, 9 - fx, 2, fx, C_XENON))
+            # 图标内容区为 1..9（四周各 1px 边框），三根条取 3px 宽刚好铺满、无缝隙
+            # 底边与格子底边齐平（原来的 9-h 会在底部留 1px 灰边，看起来像没贴合）
+            out.append((1, 10 - fh, 3, fh, C_SKIN))
+            out.append((4, 10 - fe, 3, fe, C_ENRICH))
+            out.append((7, 10 - fx, 3, fx, C_XENON))
 
     elif kind == "BOILER":
         fw = int(min(max(math.ceil(cell.water * 8.0 / BOILER_WATER_MAX), 0), 8))
-        out.append((1, 9 - fw, 3, fw, C_WATER))
+        out.append((1, 10 - fw, 3, fw, C_WATER))
         dot = STEAM_DOT.get(cell.steam_type)
         if dot:
             dy = {"STEAM": 1, "HOTSTEAM": 3, "SUPERHOTSTEAM": 5, "ULTRAHOTSTEAM": 7}[cell.steam_type]
@@ -77,15 +79,15 @@ def column_overlays(cell, model, max_heat: float = MAX_HEAT):
 
     elif kind == "HEATEX":
         fw = int(min(max(math.ceil(cell.water * 8.0 / HEATER_IN_MAX), 0), 8))
-        out.append((1, 9 - fw, 3, fw, C_HEATEX_IN))
+        out.append((1, 10 - fw, 3, fw, C_HEATEX_IN))
 
     # 模组里 CONTROL 没有 break，会穿透到 CONTROL_AUTO 的插入条
     if kind == "CONTROL":
         idx = GROUP_INDEX.get(getattr(cell.group, "value", None))
         if idx is not None:
             color = CTRL_COLORS[idx]
-            out.append((3, 1, 1, 8, color))
-            out.append((6, 1, 1, 8, color))
+            out.append((2, 1, 2, 9, color))
+            out.append((6, 1, 2, 9, color))
 
     if kind in ("CONTROL", "CONTROL_AUTO"):
         if kind == "CONTROL_AUTO":
@@ -93,6 +95,6 @@ def column_overlays(cell, model, max_heat: float = MAX_HEAT):
         else:
             frac = max(0.0, min(1.0, model.effective_insertion(cell) / 100.0))
         fr = 8 - int(math.ceil(frac * 8.0))
-        out.append((4, 1, 2, fr, C_AUTO))
+        out.append((4, 1, 3, fr, C_AUTO))
 
     return [r for r in out if r[3] > 0 and r[2] > 0]
