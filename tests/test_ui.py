@@ -706,12 +706,12 @@ def test_column_overlays_match_console_coordinates():
     rects = column_overlays(rod, m)
     colors = {(r[0], r[1], r[2], r[3]): r[4] for r in rects}
     # 热量红线：左右各 1 宽，高 5，自底向上
-    assert colors[(0, 5, 2, 5)] == C_HEAT
-    assert colors[(8, 5, 2, 5)] == C_HEAT
+    assert colors[(0, 5, 1, 5)] == C_HEAT
+    assert colors[(9, 5, 1, 5)] == C_HEAT
     # 燃料三色条：x+1 壳温 / x+4 浓缩度 / x+7 氙毒，均为 3px 宽铺满内容区
-    assert colors[(1, 1, 3, 9)] == C_SKIN      # 壳温接近熔点 → 满 8 再向下/向右各扩 1px
-    assert colors[(4, 1, 3, 9)] == C_ENRICH    # 燃耗 0 → 满 8 + 1px
-    assert colors[(7, 5, 3, 5)] == C_XENON     # 氙 50% → 4/8 + 1px
+    assert colors[(1, 1, 2, 8)] == C_SKIN      # 壳温接近熔点 → 满 8（模组上限）
+    assert colors[(4, 1, 2, 8)] == C_ENRICH    # 燃耗 0 → 满 8
+    assert colors[(7, 5, 2, 4)] == C_XENON     # 氙 50% → 4/8
 
     m.place(1, 2, ComponentType.RBMK_CONTROL)
     ctl = m.cell_at(1, 2)
@@ -719,10 +719,10 @@ def test_column_overlays_match_console_coordinates():
     ctl.insertion = 25.0
     rects = column_overlays(ctl, m)
     colors = {(r[0], r[1], r[2], r[3]): r[4] for r in rects}
-    assert colors[(3, 1, 2, 9)] == (0, 38, 255)   # 分组色两条竖线 x+3 / x+6（各 +1px）
-    assert colors[(6, 1, 2, 9)] == (0, 38, 255)
+    assert colors[(3, 1, 1, 8)] == (0, 38, 255)   # 分组色两条竖线 x+3 / x+6
+    assert colors[(6, 1, 1, 8)] == (0, 38, 255)
     # 手动棒穿透到插入条：fr = 8 - ceil(0.25*8) = 6
-    assert any(r[:4] == (4, 1, 3, 7) for r in rects)
+    assert any(r[:4] == (4, 1, 2, 6) for r in rects)
 
 
 def test_grid_cells_stay_aligned_when_overlays_drawn():

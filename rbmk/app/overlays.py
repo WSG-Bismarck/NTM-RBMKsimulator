@@ -59,8 +59,12 @@ def column_overlays(cell, model, max_heat: float = MAX_HEAT):
     out: list[tuple[float, float, float, float, tuple[int, int, int]]] = []
     kind = KIND_OF.get(cell.comp, "BLANK")
 
+    # 1) 热量条（模组里先画，类型状态条后画会盖住它的一部分）
     heat = cell.shown_temp if cell.shown_temp else cell.temp
     hh = int(min(max(math.ceil((heat - 20.0) * 10.0 / max_heat), 0), 10))
+    if hh > 0:
+        out.append((0, 10 - hh, 1, hh, C_HEAT))
+        out.append((9, 10 - hh, 1, hh, C_HEAT))
 
     # 2) 按类型的状态条
     if kind in ("FUEL", "FUEL_SIM"):
@@ -103,21 +107,4 @@ def column_overlays(cell, model, max_heat: float = MAX_HEAT):
         fr = 8 - int(math.ceil(frac * 8.0))
         out.append((4, 1, 2, fr, C_AUTO))
 
-    # 热量条最后叠加：状态条扩展后可能压到 x=9，红线要保持在最上层可见
-    if hh > 0:
-        out.append((0, 10 - hh, 1, hh, C_HEAT))
-        out.append((9, 10 - hh, 1, hh, C_HEAT))
-
-    # 状态条向右、向下各扩 1 像素（模组在右侧和底部各留了 1px，放大后就是可见缝隙）。
-    # 已经贴住右边缘的（如右侧热量线）改为向左扩 1px，宽度一致且不越界。
-    grown = []
-    for gx, gy, gw, gh, color in out:
-        gh = min(gh + 1, 10 - gy)
-        if gx + gw >= 10:
-            gw = min(gw + 1, 10)
-            gx = max(0, 10 - gw)
-        else:
-            gw = min(gw + 1, 10 - gx)
-        if gw > 0 and gh > 0:
-            grown.append((gx, gy, gw, gh, color))
-    return grown
+    return [r for r in out if r[3] > 0 and r[2] > 0]
