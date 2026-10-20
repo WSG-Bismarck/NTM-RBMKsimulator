@@ -1,51 +1,93 @@
 """模拟引擎：中子学、热、蒸汽、发电、燃料消耗、氙毒、熔毁。
 
-纯逻辑，不依赖界面，可单独测试。
-数值常量见 DEFAULT_PARAMS（v1 建模值，见 spec/rbmk-mechanics.md 6.3）。
+燃料反应性/燃烧/氙毒公式与常量来自 HBM-NTM-.1.0.27_X5846.jar 反编译
+（ItemRBMKRod.reactivityFunc / burn / xenonGenFunc / xenonBurnFunc）。
+热工与全局通量标度为 v2 建模层（见 spec/rbmk-mechanics.md）。
 """
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
 
-from rbmk.model.components import ComponentType
-from rbmk.model.reactor import CONTROL_TYPES, FUEL_TYPES, ReactorModel
+from rbmk.model.components import ComponentType, FuelType
+from rbmk.model.reactor import FUEL_TYPES, ReactorModel
 
 AMBIENT = 25.0
 
 DEFAULT_PARAMS = {
+    "base_flux": 40.0,             # 全局中子通量标度（模型层）
     "moderator_efficiency": 0.30,
     "absorber_efficiency": 0.08,
     "reflector_efficiency": 0.25,
-    "control_efficiency": 0.06,
-    "heat_coeff": 12.0,
+    "control_efficiency": 0.50,
+    "heat_coeff": 0.50,            # 热输入 -> 温升（模型层）
     "cooling_coeff": 0.03,
     "passive_cooling": 0.005,
     "turbine_efficiency": 0.30,
     "power_scale": 100.0,
-    "burn_rate": 0.00008,
-    "xenon_scale": 0.10,
     "warning_ratio": 0.60,
     "danger_ratio": 0.85,
     "max_substeps": 5000,
+    "enable_xenon": True,
 }
+
+
+# ---------- 精确公式（来自 jar） ----------
+def depletion_modifier(dep_func: str, enrichment: float) -> float:
+    """ItemRBMKRod.reactivityModByEnrichment（按反编译 switch 还原）。"""
+    e = enrichment
+    if dep_func == "RAISING_SLOPE":
+        return 1.0
+    if dep_func == "BOOSTED_SLOPE":
+        return e + math.sin((e - 1.0) * (e - 1.0) * math.pi)
+    if dep_func == "GENTLE_SLOPE":
+        return e + math.sin(e * math.pi) / 2.0
+    if dep_func == "STATIC":
+        return e + math.sin(e * math.pi) / 3.0
+    return e  # LINEAR
+
+
+def reactivity_function(ft: FuelType, in_flux: float, enrichment: float) -> float:
+    """ItemRBMKRod.reactivityFunc 的逐函数还原。"""
+    flux = in_flux * depletion_modifier(ft.dep_func, enrichment)
+    r = ft.reactivity
+    f = ft.function
+    if f == "PASSIVE":
+        return ft.self_rate * enrichment
+    if f == "LOG_TEN":
+        return math.log10(flux + 1.0) * 0.5 * r
+    if f == "PLATEU":
+        return (1.0 - math.pow(math.e, -flux / 25.0)) * r
+    if f == "ARCH":
+        return max((flux - flux * flux / 10000.0) / 100.0 * r, 0.0)
+    if f == "SIGMOID":
+        return r / (1.0 + math.pow(math.e, -(flux - 50.0) / 10.0))
+    if f == "SQUARE_ROOT":
+        return math.sqrt(max(0.0, flux)) * r / 10.0
+    if f == "LINEAR":
+        return flux / 100.0 * r
+    if f == "QUADRATIC":
+        return flux * flux / 10000.0 * r
+    if f == "EXPERIMENTAL":
+        return flux * (math.sin(flux) + 1.0) * r
+    return 0.0
 
 
 @dataclass
 class EngineState:
-    time: float = 0.0            # 模拟秒
-    power: float = 0.0           # 热功率（MW 量级）
+    time: float = 0.0
+    power: float = 0.0
     flux: float = 0.0
-    temperature: float = AMBIENT # 最高柱温 °C
+    temperature: float = AMBIENT
     steam: float = 0.0
-    electricity: float = 0.0     # 瞬时发电（MW）
-    total_energy: float = 0.0    # 累计发电（MWh）
+    electricity: float = 0.0
+    total_energy: float = 0.0
     fuel_remaining: float = 100.0
     xenon: float = 0.0
-    status: str = "normal"       # normal/warning/danger/meltdown
+    status: str = "normal"
     melted: bool = False
     melt_temp: float = 2800.0
-    temp_rate: float = 0.0       # 温度变化率 °C/模拟秒（用于安全时长估算）
+    temp_rate: float = 0.0
 
 
 class SimulationEngine:
@@ -55,7 +97,6 @@ class SimulationEngine:
         self.state = EngineState(melt_temp=self._min_melting())
         self._reset()
 
-    # ---------- 初始化 ----------
     def _reset(self) -> None:
         for _, _, cell in self.model.iter_cells():
             cell.temp = AMBIENT
@@ -63,6 +104,7 @@ class SimulationEngine:
             cell.flux = 0.0
             cell.steam = 0.0
             cell.water = 100.0
+            cell.xenon = 0.0
         self.state = EngineState(melt_temp=self._min_melting())
 
     def reset(self) -> None:
@@ -76,7 +118,6 @@ class SimulationEngine:
                 best = ft.melting_point if best is None else min(best, ft.melting_point)
         return best or 2800.0
 
-    # ---------- 邻居/统计 ----------
     def _neighbors(self, r: int, c: int):
         for dr in (-1, 0, 1):
             for dc in (-1, 0, 1):
@@ -99,7 +140,6 @@ class SimulationEngine:
             if cell.comp in FUEL_TYPES and cell.fuel_type is not None
         ]
 
-    # ---------- 单步 ----------
     def _substep(self, dt: float) -> None:
         p = self.p
         s = self.state
@@ -130,32 +170,36 @@ class SimulationEngine:
 
         for r, c, cell in fuel:
             ft = cell.fuel_type
-            local = ft.reactivity * (1.0 - cell.burnup) * (1.0 - 0.5 * cell.xenon)
             nmod = sum(1 for nb in self._neighbors(r, c) if nb.comp == ComponentType.MODERATOR)
-            local *= (1.0 + 0.10 * nmod)
-            cell.flux = local * mod_factor * refl_factor * abs_factor
-            total_flux += cell.flux
+            in_flux = p["base_flux"] * mod_factor * refl_factor * abs_factor * (1.0 + 0.10 * nmod)
+            in_flux += ft.self_rate
 
-            cell.heat = cell.flux * ft.heat
+            # 氙毒（0..100，与模组一致）
+            if p["enable_xenon"] and ft.x_burn > 0:
+                x0 = cell.xenon
+                burn = in_flux * in_flux / ft.x_burn
+                in_flux *= max(0.0, 1.0 - x0 / 100.0)
+                gen = in_flux * ft.x_gen
+                cell.xenon = _clamp(x0 - burn + gen, 0.0, 100.0)
+
+            enrichment = max(0.0, 1.0 - cell.burnup)
+            out_flux = reactivity_function(ft, in_flux, enrichment)
+            cell.flux = out_flux
+            cell.heat = out_flux * ft.heat
+            total_flux += out_flux
             total_heat += cell.heat
 
-            # 温度：一阶惯性
+            # 燃料消耗（模组：yield -= inFlux，enrichment = 剩余/初始）
+            if ft.yield_ > 0:
+                cell.burnup = min(1.0, cell.burnup + in_flux / ft.yield_)
+            burn_sum += cell.burnup
+            xenon_sum += cell.xenon
+
             dtemp = (cell.heat * p["heat_coeff"] - cooling * (cell.temp - AMBIENT)) * dt
             cell.temp += dtemp
             if cell.temp > max_temp:
                 max_temp = cell.temp
 
-            # 燃料燃耗
-            cell.burnup = min(1.0, cell.burnup + cell.flux * p["burn_rate"] * dt)
-            burn_sum += cell.burnup
-
-            # 氙毒：生成 - 燃耗
-            gen = ft.x_gen * p["xenon_scale"] * cell.flux
-            burn = ft.x_burn * cell.xenon * cell.flux
-            cell.xenon = _clamp(cell.xenon + (gen - burn) * dt, 0.0, 1.0)
-            xenon_sum += cell.xenon
-
-        # 生产链：热 -> 锅炉产蒸汽 -> 涡轮发电（无锅炉则无蒸汽/发电）
         if fuel:
             steam_frac = min(1.0, boiler / max(1, len(fuel)))
             s.steam = total_heat * steam_frac
@@ -167,7 +211,6 @@ class SimulationEngine:
                 cell.temp += (AMBIENT - cell.temp) * min(1.0, dt * 0.05)
             max_temp = max((c.temp for _, _, c in self.model.iter_cells()), default=AMBIENT)
 
-        # 更新状态
         s.time += dt
         s.power = total_heat * p["power_scale"]
         s.flux = total_flux
@@ -176,11 +219,8 @@ class SimulationEngine:
         if fuel:
             s.fuel_remaining = 100.0 * (1.0 - burn_sum / len(fuel))
             s.xenon = xenon_sum / len(fuel)
-
-        # 温度趋势（用于安全时长）
         s.temp_rate = (s.temperature - prev_temp) / dt if dt > 0 else 0.0
 
-        # 熔毁判定
         melt = s.melt_temp
         if max_temp >= melt:
             s.melted = True
@@ -194,7 +234,6 @@ class SimulationEngine:
         else:
             s.status = "normal"
 
-    # ---------- 推进 ----------
     def advance(self, dt_total: float) -> None:
         """把 dt_total 秒模拟时间拆成 0.05s 子步推进。"""
         if dt_total <= 0:

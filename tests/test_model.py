@@ -21,13 +21,20 @@ def test_control_groups_are_5():
     assert set(CONTROL_GROUP_COLORS) == set(ControlGroup)
 
 
-def test_fuel_list_is_35():
-    assert len(FUELS) == 35
+def test_fuel_list_is_34():
+    assert len(FUELS) == 34
     assert "rbmk_fuel_ueu" in FUELS
     assert "rbmk_fuel_empty" in FUELS
     assert FUELS["rbmk_fuel_empty"].reactivity == 0.0
-    # HEU 反应性应高于 LEU
+    # HEU 反应性应高于 LEU（均为 jar 精确值）
     assert FUELS["rbmk_fuel_heu235"].reactivity > FUELS["rbmk_fuel_ueu"].reactivity
+    # 抽查反编译得到的精确值（ModItems / ItemRBMKRod）
+    assert FUELS["rbmk_fuel_ueu"].reactivity == 15.0
+    assert FUELS["rbmk_fuel_heu235"].reactivity == 50.0
+    assert FUELS["rbmk_fuel_heu235"].function == "SQUARE_ROOT"
+    assert FUELS["rbmk_fuel_uzh"].melting_point == 1845.0
+    assert FUELS["rbmk_fuel_uzh"].heat_coeff_start == 1000.0
+    assert FUELS["rbmk_fuel_lea"].self_rate == 10.0
 
 
 def test_place_erase_counts():

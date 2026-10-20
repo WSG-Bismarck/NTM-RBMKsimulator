@@ -35,7 +35,7 @@
 `RED`、`YELLOW`、`GREEN`、`BLUE`、`PURPLE` —— 共 5 个颜色组。
 软件需支持：**全局统一调节** + **按颜色分组调节** + **单根调节**。
 
-## 3. 燃料棒清单（ModItems 中的 rbmk_fuel_*，共 35 项）
+## 3. 燃料棒清单（ModItems 中的 rbmk_fuel_*，共 34 项）
 
 来源：`com/hbm/items/ModItems`、`com/hbm/items/machine/ItemRBMKRod`
 
@@ -58,7 +58,6 @@
 | rbmk_fuel_hea242 | 高浓缩镅-242 |
 | rbmk_fuel_heaus | 高浓缩镅（混合） |
 | rbmk_fuel_hen | 高浓缩镎 |
-| rbmk_fuel_hep | 高浓缩钚（混合） |
 | rbmk_fuel_hes | 高浓缩锶 |
 | rbmk_fuel_men | 中浓缩镎 |
 | rbmk_fuel_mes | 中浓缩锶 |
@@ -120,7 +119,9 @@
 - **控制棒**：全局 / 分组（5 色）/ 单根 三种调节方式。
 - **数值常量**：取 `ItemRBMKRod` 字段语义（reactivity/heat/yield/meltingPoint/xGen/xBurn 等）构造各燃料参数；具体默认值见 `rbmk/model/components.py`。
 
-### 6.3 保真度声明（重要）
+### 6.3 保真度声明（v2 已更新）
 - **清单类数据 100% 来自 jar**（组件/燃料/分组/参数键）。
-- **数值常量为 v1 建模值**：受限于当前无 Java 环境、未做完整字节码反编译，燃料的逐项精确数值（reactivity/heat/meltingPoint 等）尚未从 `ModItems` 的 `setStats/setHeat/setMeltingPoint` 调用中逐一还原。v1 以“命名层级 + 语义字段”构造合理参数，**并在验收中如实标注**，不声称已 100% 还原数值。
-- v2 补全路径：引入 Vineflower/CFR 反编译 → 还原 `ModItems` 中每种燃料的 `setStats/setHeat/setYield/setMeltingPoint/setXenon` 实参 → 替换 `components.py` 中的参数表。
+- **燃料逐项数值已精确还原（v2）**：已用 CFR 0.152 反编译 `ModItems`，把 34 种燃料的 `setStats/setHeat/setMeltingPoint/setYield/setDiffusion/setXenon/setHeatCoeff/setNeutronTypes` 实参逐条提取，写入 `rbmk/model/fuel_data.py`（由 `tools/parse_fuels.py` 生成）。
+- **反应性/燃烧/氙毒公式已精确还原**：`reactivity_function` 逐函数实现 `ItemRBMKRod.reactivityFunc` 的 9 种燃烧函数（PASSIVE/LOG_TEN/PLATEU/ARCH/SIGMOID/SQUARE_ROOT/LINEAR/QUADRATIC/EXPERIMENTAL）；氙毒按 `xenonGenFunc/xenonBurnFunc` 实现。
+- **仍为模型层的部分**：全局通量标度 `base_flux`、热工系数 `heat_coeff/cooling_coeff`、慢化/反射/吸收/控制棒效率——这些是反应堆级的聚合参数，尚未逐项对齐 `RBMKDials` 默认值（需进一步解析 GameRules 默认值）。
+- 中文显示名部分仍为按命名推断，可从模组语言文件对齐。

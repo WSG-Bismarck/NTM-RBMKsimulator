@@ -296,7 +296,7 @@ class MainWindow:
             om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
                          highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
             om.pack(fill="x")
-            tk.Label(p, text=f"燃耗 {cell.burnup*100:.1f}%   氙毒 {cell.xenon*100:.1f}%",
+            tk.Label(p, text=f"燃耗 {cell.burnup*100:.2f}%   氙毒 {cell.xenon:.1f}%",
                      bg=theme.SURFACE, fg=theme.MUTED, font=theme.FONT_SMALL,
                      anchor="w").pack(fill="x", pady=(8, 0))
         elif cell.comp in CONTROL_TYPES:

@@ -1,7 +1,7 @@
 """阶段 4 引擎测试：功率/温度/生产链/燃料消耗/熔毁。"""
-from rbmk.model.components import ComponentType, ControlGroup
+from rbmk.model.components import ComponentType, ControlGroup, FUELS
 from rbmk.model.reactor import ReactorModel
-from rbmk.sim.engine import SimulationEngine
+from rbmk.sim.engine import SimulationEngine, reactivity_function
 
 
 def _model(coolant=50.0, insertion=100.0, with_control=False, with_mod=False,
@@ -100,3 +100,21 @@ def test_meltdown_without_coolant():
             break
     assert e.state.melted
     assert e.state.status == "meltdown"
+
+
+def test_reactivity_function_square_root_exact():
+    """HEU235: SQUARE_ROOT, reactivity=50, GENTLE_SLOPE(e=1)=1 -> sqrt(100)*50/10=50"""
+    ft = FUELS["rbmk_fuel_heu235"]
+    assert abs(reactivity_function(ft, 100.0, 1.0) - 50.0) < 1e-9
+
+
+def test_reactivity_function_linear_exact():
+    """HEP239: LINEAR, reactivity=30 -> 100/100*30=30"""
+    ft = FUELS["rbmk_fuel_hep239"]
+    assert abs(reactivity_function(ft, 100.0, 1.0) - 30.0) < 1e-9
+
+
+def test_reactivity_function_passive_exact():
+    """PO210BE: PASSIVE, self_rate=50 -> 50*enrichment"""
+    ft = FUELS["rbmk_fuel_po210be"]
+    assert abs(reactivity_function(ft, 100.0, 0.5) - 25.0) < 1e-9
