@@ -554,3 +554,25 @@ def test_control_group_can_be_set_to_vacant():
         assert win.model.effective_insertion(cell) == 10.0
     finally:
         root.destroy()
+
+
+def test_chart_shows_avg_temp_flux_and_electricity():
+    """实时曲线的三条线：平均温度 / 中子通量 / 瞬时发电量。"""
+    from rbmk.model.components import ComponentType
+    win, root = _fresh()
+    try:
+        assert set(win.chart.hist) == {"temp", "elec", "flux"}
+        win.model.place(2, 2, ComponentType.RBMK_ROD, fuel="rbmk_fuel_po210be")
+        win.model.place(2, 3, ComponentType.RBMK_BOILER)
+        win.on_model_changed()
+        win.set_speed(1)
+        win.toggle_run()
+        for _ in range(5):
+            win._tick()
+        win.toggle_run()
+        st = win.engine.state
+        assert abs(win.chart.hist["temp"][-1] - st.avg_temperature) < 1e-9
+        assert abs(win.chart.hist["elec"][-1] - st.electricity) < 1e-9
+        assert abs(win.chart.hist["flux"][-1] - st.flux) < 1e-9
+    finally:
+        root.destroy()
