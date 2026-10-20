@@ -663,3 +663,27 @@ def test_reasim_mode_shows_component_reasim_steam_row():
         assert "reasim_steam" not in win._prop_labels
     finally:
         root.destroy()
+
+
+def test_components_use_mod_block_icons():
+    """网格与左侧组件栏使用模组方块贴图（rbmk_*_top.png），不是纯色块。"""
+    from rbmk.model.components import ComponentType
+    from rbmk.app.icons import get_icon
+    win, root = _fresh()
+    try:
+        assert get_icon(ComponentType.RBMK_BOILER.value, 16) is not None
+        win.select_tool(ComponentType.RBMK_BOILER.value)
+        win.grid_editor._paint((2, 2))
+        win.grid_editor.redraw()
+        cv = win.grid_editor.canvas
+        images = [i for i in cv.find_all() if cv.type(i) == "image"]
+        assert images, "网格里应绘制组件图标"
+        # 左侧组件栏：至少一个组件行里是带 image 的 Label
+        has_icon_label = False
+        for row in win._palette_items.values():
+            for ch in row.winfo_children():
+                if ch.winfo_class() == "Label" and ch.cget("image"):
+                    has_icon_label = True
+        assert has_icon_label
+    finally:
+        root.destroy()

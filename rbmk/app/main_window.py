@@ -5,6 +5,8 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 
 from rbmk.app import theme
+from rbmk.app import icons as icon_store
+from rbmk.app.icons import get_icon
 from rbmk.app.chart_panel import ChartPanel
 from rbmk.app.grid_editor import GridEditor
 from rbmk.model import save_load
@@ -157,9 +159,13 @@ class MainWindow:
                 onclick = lambda e, c=comp: self.select_tool(c.value)
             row = tk.Frame(parent, bg=theme.SURFACE, cursor="hand2")
             row.pack(fill="x", padx=4, pady=1)
-            sw = tk.Frame(row, bg=color, width=12, height=12)
+            icon = None if is_tool else get_icon(comp.value, 16)
+            if icon is not None:
+                sw = tk.Label(row, image=icon, bg=theme.SURFACE, bd=0)
+            else:
+                sw = tk.Frame(row, bg=color, width=12, height=12)
+                sw.pack_propagate(False)
             sw.pack(side="left", padx=(4, 6))
-            sw.pack_propagate(False)
             lab = tk.Label(row, text=name, bg=theme.SURFACE, fg=theme.INK,
                            font=(theme.FAMILY, 8), anchor="w")
             lab.pack(side="left", fill="x")
@@ -814,4 +820,6 @@ def _fmt(seconds: float) -> str:
 
 def create_app():
     root = tk.Tk()
+    # PhotoImage 绑定到具体的 Tk 解释器，换窗口（含测试里反复建/销毁）必须先清缓存
+    icon_store.clear_cache()
     return MainWindow(root), root

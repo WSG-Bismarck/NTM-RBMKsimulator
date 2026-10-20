@@ -8,6 +8,6 @@ if errorlevel 1 (
   exit /b 1
 )
 echo === 打包 exe ===
-python -m PyInstaller --noconfirm --onefile --windowed --name RBMK-Simulator --distpath dist --workpath build --specpath build main.py
+python -m PyInstaller --noconfirm --onefile --windowed --name RBMK-Simulator --add-data "%~dp0rbmkssets;rbmk/assets" --distpath dist --workpath build --specpath build main.py
 echo === 完成：dist\RBMK-Simulator.exe ===
 pause
