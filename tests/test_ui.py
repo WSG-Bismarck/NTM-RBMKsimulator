@@ -322,3 +322,25 @@ def test_prop_panel_function_chinese_and_split_neutron_types():
         assert win._prop_labels["function"].cget("text") == "恒定输出"
     finally:
         root.destroy()
+
+
+def test_boiler_prop_shows_steam_per_tick():
+    """锅炉属性显示每 tick 产汽量（/tick），不是累计值。"""
+    win, root = _fresh()
+    try:
+        boiler = win.model.place(2, 2, ComponentType.RBMK_BOILER)
+        boiler.temp = 200.0
+        win.engine._heat_tick()
+        win.on_select((2, 2))
+        text = win._prop_labels["steam"].cget("text")
+        assert text.endswith("/tick")
+        assert float(text[:-5]) > 0
+
+        win.engine._heat_tick()          # 温度降到 100 以下后不再产汽
+        win.engine._heat_tick()
+        win.engine._heat_tick()
+        win.engine._heat_tick()
+        win._refresh_prop_values()
+        assert win._prop_labels["steam"].cget("text") == "0.00/tick"
+    finally:
+        root.destroy()

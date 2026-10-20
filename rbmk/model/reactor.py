@@ -32,6 +32,7 @@ class Cell:
     heat: float = 0.0
     flux: float = 0.0
     steam: float = 0.0
+    steam_rate: float = 0.0            # 每 tick 产汽量
     water: float = 100.0
     # ---- 中子逐格状态（运行时）----
     flux_q: float = 0.0

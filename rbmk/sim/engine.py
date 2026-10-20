@@ -127,6 +127,7 @@ class SimulationEngine:
             cell.heat = 0.0
             cell.flux = 0.0
             cell.steam = 0.0
+            cell.steam_rate = 0.0
             cell.water = 100.0
             cell.xenon = 0.0
             cell.burnup = 0.0
@@ -280,7 +281,10 @@ class SimulationEngine:
         # 锅炉：热量 -> 蒸汽
         steam = 0.0
         for r, c, cell in cells:
-            if behavior_of(cell.comp) != Behavior.BOILER or cell.temp < 100.0:
+            if behavior_of(cell.comp) != Behavior.BOILER:
+                continue
+            cell.steam_rate = 0.0
+            if cell.temp < 100.0:
                 continue
             heat_available = min(cell.temp - 100.0, p["boiler_capacity"])
             if heat_available <= 0:
@@ -288,6 +292,7 @@ class SimulationEngine:
             water = heat_available / p["boiler_heat_consumption"]
             cell.temp -= heat_available
             cell.steam += water
+            cell.steam_rate = water
             steam += water
         self._steam_tick = steam
 

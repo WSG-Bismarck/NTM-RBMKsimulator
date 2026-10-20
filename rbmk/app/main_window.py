@@ -376,7 +376,7 @@ class MainWindow:
         if beh == Behavior.CONTROL:
             self._prop_row("有效 level", "level")
         if beh == Behavior.BOILER:
-            self._prop_row("累计蒸汽", "steam")
+            self._prop_row("每刻蒸汽产生量", "steam")
         self._refresh_prop_values()
 
     def _prop_row(self, label, key):
@@ -431,7 +431,7 @@ class MainWindow:
         if behavior_of(cell.comp) == Behavior.CONTROL:
             vals["level"] = f"{1.0 - self.model.effective_insertion(cell) / 100.0:.2f}"
         if behavior_of(cell.comp) == Behavior.BOILER:
-            vals["steam"] = f"{cell.steam:.2f} MB"
+            vals["steam"] = f"{cell.steam_rate:.2f}/tick"
         for k, v in vals.items():
             if k in labels:
                 labels[k].configure(text=v)
