@@ -127,6 +127,12 @@ MODERATED_COMPONENTS: frozenset[ComponentType] = frozenset({
     ComponentType.RBMK_CONTROL_MOD,
 })
 
+# ReaSim 燃料通道：8 方向 45° 扩散（TileEntityRBMKRodReaSim.spreadFlux）
+REASIM_COMPONENTS: frozenset[ComponentType] = frozenset({
+    ComponentType.RBMK_ROD_REASIM,
+    ComponentType.RBMK_ROD_REASIM_MOD,
+})
+
 FUEL_COMPONENTS: tuple[ComponentType, ...] = tuple(
     c for c in ComponentType if COMPONENT_BEHAVIOR[c] == Behavior.FUEL
 )

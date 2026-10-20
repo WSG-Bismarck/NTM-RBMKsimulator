@@ -471,3 +471,42 @@ def test_moderated_origin_reflected_stream_is_slowed():
     e2 = SimulationEngine(m2)
     e2._cast(0, 0, 0, 1, 100.0, 1.0, src2)
     assert src2.flux_ratio == 1.0
+
+
+# ---------- ReaSim 模式 ----------
+def test_reasim_mode_hits_diagonal_cells():
+    m = ReactorModel(5, 5)
+    m.place(2, 2, ROD, fuel=SRC)           # 自燃源，输出 50
+    d = m.place(3, 3, ROD, fuel=HEU)
+    m.sim_mode = "reasim"
+    e = SimulationEngine(m)
+    e._neutron_tick()
+    assert abs(d.flux_q - 50.0 * 0.75) < 1e-9
+
+
+def test_normal_mode_does_not_hit_diagonal_cells():
+    m = ReactorModel(5, 5)
+    m.place(2, 2, ROD, fuel=SRC)
+    d = m.place(3, 3, ROD, fuel=HEU)
+    e = SimulationEngine(m)
+    e._neutron_tick()
+    assert d.flux_q == 0.0
+
+
+def test_reasim_axial_neighbor_gets_075_flux():
+    m = ReactorModel(5, 5)
+    m.place(2, 2, ROD, fuel=SRC)
+    n = m.place(2, 3, ROD, fuel=HEU)
+    m.sim_mode = "reasim"
+    e = SimulationEngine(m)
+    e._neutron_tick()
+    assert abs(n.flux_q - 50.0 * 0.75) < 1e-9
+
+
+def test_reasim_rod_component_spreads_8_ways_in_normal_mode():
+    m = ReactorModel(5, 5)
+    m.place(2, 2, ComponentType.RBMK_ROD_REASIM, fuel=SRC)
+    d = m.place(3, 3, ROD, fuel=HEU)
+    e = SimulationEngine(m)
+    e._neutron_tick()
+    assert abs(d.flux_q - 50.0 * 0.75) < 1e-9

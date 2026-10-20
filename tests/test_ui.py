@@ -504,3 +504,18 @@ def test_overview_global_heater_fluid_selector():
         assert win.model.cell_at(2, 3).heater_fluid == "BLOOD"
     finally:
         root.destroy()
+
+
+def test_toolbar_toggles_reasim_mode():
+    win, root = _fresh()
+    try:
+        assert win.model.sim_mode == "normal"
+        assert win.mode_btn.cget("text") == "模式：普通"
+        win.toggle_sim_mode()
+        assert win.model.sim_mode == "reasim"
+        assert win.mode_btn.cget("text") == "模式：ReaSim"
+        win.toggle_sim_mode()
+        assert win.model.sim_mode == "normal"
+        assert win.mode_btn.cget("text") == "模式：普通"
+    finally:
+        root.destroy()

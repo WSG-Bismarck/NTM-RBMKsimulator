@@ -20,3 +20,6 @@ tools/cfr.jar
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# 本地仓库导出包
+*.bundle

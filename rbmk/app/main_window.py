@@ -108,6 +108,8 @@ class MainWindow:
         self.run_btn = _btn(bar, "▶ 运行", self.toggle_run, "primary")
         self.run_btn.pack(side="left", pady=7)
         _btn(bar, "重置", self.reset_simulation).pack(side="left", padx=(4, 0), pady=7)
+        self.mode_btn = _btn(bar, "模式：普通", self.toggle_sim_mode)
+        self.mode_btn.pack(side="left", padx=(4, 0), pady=7)
         self.speed_btns = {}
         grp = tk.Frame(bar, bg=theme.SURFACE)
         grp.pack(side="right", padx=10)
@@ -255,6 +257,16 @@ class MainWindow:
         self.grid_editor.redraw()
         self._refresh_state()
         self.render_panel()
+
+    def toggle_sim_mode(self):
+        """切换普通模式 / ReaSim 模式。"""
+        self.model.sim_mode = "reasim" if self.model.sim_mode == "normal" else "normal"
+        self._sync_mode_btn()
+
+    def _sync_mode_btn(self):
+        if getattr(self, "mode_btn", None) is not None:
+            self.mode_btn.configure(
+                text="模式：ReaSim" if self.model.sim_mode == "reasim" else "模式：普通")
 
     # ---------------- 循环 ----------------
     def _tick(self):
@@ -660,6 +672,7 @@ class MainWindow:
         self.grid_editor.selected = None
         self.grid_editor.redraw()
         self._refresh_all()
+        self._sync_mode_btn()
 
     def save_file(self):
         path = filedialog.asksaveasfilename(

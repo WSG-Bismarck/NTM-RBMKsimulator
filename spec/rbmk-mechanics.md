@@ -149,6 +149,11 @@
   - **吸收体**：`heat += absorberHeatConversion(0.05) * flux`；`absorberEfficiency = 1.0`（默认）→ 全部吸收并终止。
   - **燃料棒**：接收通量并终止射线。
 - **自带慢化的组件**：`rbmk_rod_mod`、`rbmk_rod_reasim_mod`、`rbmk_control_mod` 在模组里方块属性 `moderated = true`。中子流经过/命中它们时，先执行 `ratio *= 1 - moderatorEfficiency`，再按组件类型处理（燃料接收 / 控制棒衰减）。反射体分支中，若源燃料棒自身带慢化，反射回源棒的流再慢化一次（对应 `runStreamInteraction` 里的 `moderatedCount`）。
+- **ReaSim 模式**（`TileEntityRBMKRodReaSim.spreadFlux`）：
+  - 普通模式：4 条正方向射线，每条 `1.0 ×` 通量，射程 `fluxRange = 5`。
+  - ReaSim 模式：**8 条 45° 射线，每条 `0.75 ×` 通量**，射程同为 5；位置按 `floor(0.5 + v × i)` 步进（对角线会出现重复格，与模组一致）。
+  - ReaSim 的节点扫描用半径 5 的圆形区域（`getReaSimNodes`：`x² + z² ≤ 25`），不是方形。
+  - 软件里顶部「模式：普通 / ReaSim」按钮全局切换；此外 `rbmk_rod_reasim`、`rbmk_rod_reasim_mod` 组件即使全局为普通模式，也按 ReaSim 的 8 向扩散。
 - 燃料对快/慢中子的加权（`fluxFromType`）：
   - `SLOW`：`slow + fast × 0.5`
   - `FAST`：`fast + slow × 0.3`

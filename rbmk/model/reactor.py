@@ -89,6 +89,7 @@ class ReactorModel:
     group_insertion: dict[str, Optional[float]] = field(default_factory=dict)
     coolant_flow: float = 50.0
     control_mode: str = "global"
+    sim_mode: str = "normal"          # "normal" 普通模式 / "reasim" ReaSim 模式
 
     def __post_init__(self):
         if not self.grid:
@@ -155,6 +156,7 @@ class ReactorModel:
             "group_insertion": dict(self.group_insertion),
             "coolant_flow": self.coolant_flow,
             "control_mode": self.control_mode,
+            "sim_mode": self.sim_mode,
             "cells": [{"r": r, "c": c, **cell.to_dict()} for r, c, cell in self.iter_cells()],
         }
 
@@ -167,6 +169,7 @@ class ReactorModel:
             group_insertion=dict(d.get("group_insertion", {})),
             coolant_flow=float(d.get("coolant_flow", 50.0)),
             control_mode=d.get("control_mode", "global"),
+            sim_mode=d.get("sim_mode", "normal"),
         )
         for item in d.get("cells", []):
             cell = Cell.from_dict(item)

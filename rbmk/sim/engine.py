@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from rbmk.model.components import (
     HEAT_FLUIDS,
     MODERATED_COMPONENTS,
+    REASIM_COMPONENTS,
     STEAM_TYPES,
     Behavior,
     FuelType,
@@ -185,11 +186,10 @@ class SimulationEngine:
         out_ratio = 0.0 if ft.r_type == NType.SLOW else 1.0
         return out_flux, out_ratio
 
-    def _cast(self, r: int, c: int, dr: int, dc: int, flux: float, ratio: float, origin) -> None:
-        """沿一个方向逐格推进中子射线（RBMKNeutronStream.runStreamInteraction）。"""
+    def _cast_positions(self, positions, flux: float, ratio: float, origin) -> None:
+        """按坐标序列逐格推进中子射线（RBMKNeutronStream.runStreamInteraction）。"""
         p = self.p
-        for i in range(1, p["flux_range"] + 1):
-            nr, nc = r + dr * i, c + dc * i
+        for nr, nc in positions:
             if not (0 <= nr < self.model.rows and 0 <= nc < self.model.cols):
                 return
             cell = self.model.grid[nr][nc]
@@ -239,6 +239,27 @@ class SimulationEngine:
             # OTHER（结构柱/存储/冷却器/加热器/辐照通道）：中子直接穿过
             continue
 
+    def _cast(self, r: int, c: int, dr: int, dc: int, flux: float, ratio: float, origin) -> None:
+        """普通模式：沿 4 个正方向逐格推进。"""
+        steps = [(r + dr * i, c + dc * i) for i in range(1, self.p["flux_range"] + 1)]
+        self._cast_positions(steps, flux, ratio, origin)
+
+    def _cast_vector(self, r: int, c: int, vx: float, vz: float,
+                     flux: float, ratio: float, origin) -> None:
+        """ReaSim：按向量步进，位置 = floor(0.5 + v * i)（与模组一致）。"""
+        steps = [
+            (r + int(math.floor(0.5 + vx * i)), c + int(math.floor(0.5 + vz * i)))
+            for i in range(1, self.p["flux_range"] + 1)
+        ]
+        self._cast_positions(steps, flux, ratio, origin)
+
+    def _spread_reasim(self, r: int, c: int, flux: float, ratio: float, origin) -> None:
+        """TileEntityRBMKRodReaSim.spreadFlux：8 条 45° 射线，每条 0.75 倍通量。"""
+        f = flux * 0.75
+        for deg in range(0, 360, 45):
+            rad = math.radians(deg)
+            self._cast_vector(r, c, math.cos(rad), math.sin(rad), f, ratio, origin)
+
     def _neutron_tick(self) -> None:
         p = self.p
         for _, _, cell in self.model.iter_cells():
@@ -268,8 +289,11 @@ class SimulationEngine:
                     cell.hull_heat -= ret
                     cell.temp += ret
             if out_flux > 0.0:
-                for dr, dc in DIRS:
-                    self._cast(r, c, dr, dc, out_flux, out_ratio, cell)
+                if self.model.sim_mode == "reasim" or cell.comp in REASIM_COMPONENTS:
+                    self._spread_reasim(r, c, out_flux, out_ratio, cell)
+                else:
+                    for dr, dc in DIRS:
+                        self._cast(r, c, dr, dc, out_flux, out_ratio, cell)
 
         for _, _, cell in rods:
             cell.last_flux_q = cell.flux_q
