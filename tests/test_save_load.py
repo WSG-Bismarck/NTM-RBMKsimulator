@@ -93,3 +93,14 @@ def test_reasim_boilers_roundtrip(tmp_path):
     p = tmp_path / "boiler_mode.json"
     save_load.save(m, p)
     assert save_load.load(p).reasim_boilers is True
+
+
+def test_vacant_control_group_roundtrip():
+    """控制组为空置时存档/读档仍为空置。"""
+    from rbmk.model.components import ComponentType
+    from rbmk.model.save_load import to_json, from_json
+    m = ReactorModel(3, 3)
+    cell = m.place(1, 1, ComponentType.RBMK_CONTROL)
+    cell.group = None
+    m2 = from_json(to_json(m))
+    assert m2.cell_at(1, 1).group is None

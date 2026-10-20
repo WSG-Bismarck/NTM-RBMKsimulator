@@ -354,8 +354,9 @@ class MainWindow:
         elif beh == Behavior.CONTROL:
             tk.Label(p, text="控制组", bg=theme.SURFACE, fg=theme.MUTED,
                      font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(2, 2))
-            gvar = tk.StringVar(value=CONTROL_GROUP_NAMES[cell.group])
-            om = tk.OptionMenu(p, gvar, *[CONTROL_GROUP_NAMES[g] for g in ControlGroup],
+            gname = CONTROL_GROUP_NAMES[cell.group] if cell.group is not None else "空置"
+            gvar = tk.StringVar(value=gname)
+            om = tk.OptionMenu(p, gvar, *(["空置"] + [CONTROL_GROUP_NAMES[g] for g in ControlGroup]),
                                command=lambda v: self._set_group(cell, v))
             om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
                          highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
@@ -367,6 +368,15 @@ class MainWindow:
                           highlightthickness=0, command=lambda v: self._set_single(cell, v))
             sc.set(self.model.effective_insertion(cell))
             sc.pack(fill="x")
+        elif beh == Behavior.BOILER:
+            tk.Label(p, text="蒸汽类型", bg=theme.SURFACE, fg=theme.MUTED,
+                     font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(2, 2))
+            svar = tk.StringVar(value=STEAM_TYPES.get(cell.steam_type, STEAM_TYPES["STEAM"]).name_cn)
+            om = tk.OptionMenu(p, svar, *[st.name_cn for st in STEAM_TYPES.values()],
+                               command=lambda v: self._set_steam_type(cell, v))
+            om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
+                         highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
+            om.pack(fill="x")
 
         self._prop_row("柱温", "temp")
         if beh == Behavior.FUEL:
@@ -389,14 +399,6 @@ class MainWindow:
         if beh == Behavior.CONTROL:
             self._prop_row("有效 level", "level")
         if beh == Behavior.BOILER:
-            tk.Label(p, text="蒸汽类型", bg=theme.SURFACE, fg=theme.MUTED,
-                     font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(6, 2))
-            svar = tk.StringVar(value=STEAM_TYPES.get(cell.steam_type, STEAM_TYPES["STEAM"]).name_cn)
-            om = tk.OptionMenu(p, svar, *[st.name_cn for st in STEAM_TYPES.values()],
-                               command=lambda v: self._set_steam_type(cell, v))
-            om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
-                         highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
-            om.pack(fill="x")
             self._prop_row("每刻蒸汽产生量", "steam")
         if beh == Behavior.HEATER:
             tk.Label(p, text="流体类型", bg=theme.SURFACE, fg=theme.MUTED,
@@ -589,10 +591,14 @@ class MainWindow:
         self.grid_editor.redraw()
 
     def _set_group(self, cell, name):
-        for g in ControlGroup:
-            if CONTROL_GROUP_NAMES[g] == name:
-                cell.group = g
-                break
+        if name == "空置":
+            cell.group = None
+        else:
+            for g in ControlGroup:
+                if CONTROL_GROUP_NAMES[g] == name:
+                    cell.group = g
+                    break
+        self._refresh_prop_values()
         self.grid_editor.redraw()
 
     def _set_steam_type(self, cell, name):

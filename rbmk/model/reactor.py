@@ -24,7 +24,7 @@ FUEL_TYPES = FUEL_COMPONENTS
 class Cell:
     comp: ComponentType
     fuel: Optional[str] = None          # 燃料 key（燃料类柱子）
-    group: ControlGroup = ControlGroup.RED
+    group: Optional[ControlGroup] = ControlGroup.RED   # None = 空置（不受分组控制）
     insertion: Optional[float] = None   # 单根插入深度 0..100；None=用分组/全局
     burnup: float = 0.0                 # 0..1
     xenon: float = 0.0                  # 0..100（与模组一致）
@@ -57,7 +57,7 @@ class Cell:
         return {
             "comp": self.comp.value,
             "fuel": self.fuel,
-            "group": self.group.value,
+            "group": self.group.value if self.group is not None else None,
             "insertion": self.insertion,
             "burnup": self.burnup,
             "xenon": self.xenon,
@@ -72,7 +72,7 @@ class Cell:
         return cls(
             comp=ComponentType(d["comp"]),
             fuel=d.get("fuel"),
-            group=ControlGroup(d.get("group", "RED")),
+            group=ControlGroup(d["group"]) if d.get("group") else None,
             insertion=d.get("insertion"),
             burnup=float(d.get("burnup", 0.0)),
             xenon=float(d.get("xenon", 0.0)),
@@ -155,9 +155,10 @@ class ReactorModel:
             return 0.0
         if cell.insertion is not None:
             return _clamp(cell.insertion, 0.0, 100.0)
-        g = self.group_insertion.get(cell.group.value)
-        if g is not None:
-            return _clamp(g, 0.0, 100.0)
+        if cell.group is not None:
+            g = self.group_insertion.get(cell.group.value)
+            if g is not None:
+                return _clamp(g, 0.0, 100.0)
         return _clamp(self.global_insertion, 0.0, 100.0)
 
     def to_dict(self) -> dict:

@@ -535,3 +535,22 @@ def test_prop_panel_has_no_neighbor_count_or_heat_power():
         assert "cooling" in win._prop_labels
     finally:
         root.destroy()
+
+
+def test_control_group_can_be_set_to_vacant():
+    """控制棒控制组可以选「空置」：不受分组滑块影响，回落到全局/单根。"""
+    from rbmk.model.components import ComponentType
+    win, root = _fresh()
+    try:
+        win.select_tool(ComponentType.RBMK_CONTROL.value)
+        win.grid_editor._paint((2, 2))
+        cell = win.model.cell_at(2, 2)
+        win._set_group(cell, "空置")
+        assert cell.group is None
+        win.model.group_insertion["RED"] = 10.0
+        assert win.model.effective_insertion(cell) == win.model.global_insertion
+        win._set_group(cell, "红组")
+        assert cell.group is not None
+        assert win.model.effective_insertion(cell) == 10.0
+    finally:
+        root.destroy()
