@@ -170,8 +170,9 @@
   - `ANY`：`fast + slow`
 
 ### 7.2 热量（TileEntityRBMKBase.moveHeat / coolPassively）
+- **逐柱执行**：每根柱按模组 TE tick 的顺序跑完自己的流程——锅炉/加热器自身逻辑 → `moveHeat` → `coolPassively` → ReaSim `boilWater`，而不是「所有柱先烧、再统一扩散」。
 - 每 tick 四邻扩散：每个柱 tick 时取「自身 + 存在的四邻」的平均值 `d`，然后把 `d - 自身` 的 `columnHeatFlow(0.2)` **加到自身和每个邻柱上**（模组 `for (rbmk : rec)` 包含邻柱），因此每对相邻柱每 tick 会被互相调整两次。
-- 只调整自身的「单侧扩散」会让燃料柱传热不足、温度虚高，反射板温度偏低；已按模组修正。
+- 只调整自身、或把扩散放到所有柱处理完之后，都会让燃料柱与邻柱的温度分配偏离模组。
 - 被动冷却：`heat -= passiveCoolingInner(0.1) + (passiveCooling(2.5) - 0.1) × ((4 - 邻接数) / 4)`，下限 20。
 - 燃料棒热链（`ItemRBMKRod.burn / updateHeat / provideHeat`，**每 tick 都执行**，与是否产热无关）：
   - `core = rectify(core + outFlux × heat)`，`rectify` 夹在 20..1e6

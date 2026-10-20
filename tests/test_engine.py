@@ -720,9 +720,10 @@ def test_move_heat_adjusts_self_and_neighbors():
     a.temp = 1000.0
     b.temp = 20.0
     e._heat_tick()
-    # 邻柱先 tick：两柱各朝 510 靠 20% → 902 / 118；另一柱再 tick → 823.6 / 196.4；各冷却 1.9
-    assert abs(a.temp - 821.7) < 1e-6
-    assert abs(b.temp - 194.5) < 1e-6
+    # 逐柱执行：a 先 tick（两柱各朝 510 靠 20% → 902 / 118，a 冷却 1.9），
+    # 再 b tick（b 朝 509.05 靠 20%，同时把 a 拉回 821.89，b 冷却后 194.31）
+    assert abs(a.temp - 821.89) < 1e-6
+    assert abs(b.temp - 194.31) < 1e-6
 
 
 def test_three_column_reflector_heats_up_from_channel():
