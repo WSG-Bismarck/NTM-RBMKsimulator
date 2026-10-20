@@ -14,6 +14,8 @@ from rbmk.model.components import (
     CONTROL_GROUP_NAMES,
     CORE_COMPONENTS,
     FUELS,
+    FUNCTION_NAMES_CN,
+    NTYPE_NAMES_CN,
     Behavior,
     ComponentType,
     ControlGroup,
@@ -369,7 +371,8 @@ class MainWindow:
             self._prop_row("燃料熔点", "melt")
             self._prop_row("燃烧函数", "function")
             self._prop_row("自发射率", "selfrate")
-            self._prop_row("中子类型", "ntype")
+            self._prop_row("裂变所需中子类型", "ntype_in")
+            self._prop_row("裂变产生中子类型", "ntype_out")
         if beh == Behavior.CONTROL:
             self._prop_row("有效 level", "level")
         if beh == Behavior.BOILER:
@@ -420,9 +423,10 @@ class MainWindow:
                 "xenon": f"{cell.xenon:.2f}",
                 "life": f"{(1 - cell.burnup) * 100:.3f}%",
                 "melt": f"{ft.melting_point:.0f} °C",
-                "function": ft.function,
+                "function": FUNCTION_NAMES_CN.get(ft.function, ft.function),
                 "selfrate": f"{ft.self_rate:g}/tick",
-                "ntype": f"{ft.n_type.value} / {ft.r_type.value}",
+                "ntype_in": NTYPE_NAMES_CN.get(ft.n_type.value, ft.n_type.value),
+                "ntype_out": NTYPE_NAMES_CN.get(ft.r_type.value, ft.r_type.value),
             })
         if behavior_of(cell.comp) == Behavior.CONTROL:
             vals["level"] = f"{1.0 - self.model.effective_insertion(cell) / 100.0:.2f}"

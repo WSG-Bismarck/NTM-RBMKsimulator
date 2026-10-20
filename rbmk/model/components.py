@@ -162,6 +162,26 @@ class NType(str, Enum):
     ANY = "ANY"
 
 
+# 显示用中文名（引擎里仍使用模组原始枚举值）
+NTYPE_NAMES_CN: dict[str, str] = {
+    "FAST": "快中子",
+    "SLOW": "慢中子",
+    "ANY": "任意中子",
+}
+
+FUNCTION_NAMES_CN: dict[str, str] = {
+    "PASSIVE": "恒定输出",
+    "LOG_TEN": "对数型",
+    "PLATEU": "平台型",
+    "ARCH": "拱形",
+    "SIGMOID": "S 形",
+    "SQUARE_ROOT": "平方根",
+    "LINEAR": "线性",
+    "QUADRATIC": "二次方",
+    "EXPERIMENTAL": "实验型",
+}
+
+
 class RBMKType(str, Enum):
     ROD = "ROD"
     MODERATOR = "MODERATOR"

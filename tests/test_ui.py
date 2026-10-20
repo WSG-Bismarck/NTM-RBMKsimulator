@@ -304,3 +304,21 @@ def test_prop_panel_hides_reactivity_for_fuel():
         assert "selfrate" in win._prop_labels
     finally:
         root.destroy()
+
+
+def test_prop_panel_function_chinese_and_split_neutron_types():
+    """燃烧函数显示中文；中子类型拆成所需/产生两行。"""
+    win, root = _fresh()
+    try:
+        win.model.place(2, 2, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
+        win.on_select((2, 2))
+        assert "ntype" not in win._prop_labels
+        assert win._prop_labels["function"].cget("text") == "平方根"
+        assert win._prop_labels["ntype_in"].cget("text") == "慢中子"
+        assert win._prop_labels["ntype_out"].cget("text") == "快中子"
+
+        win.model.place(2, 3, ComponentType.RBMK_ROD, fuel="rbmk_fuel_po210be")
+        win.on_select((2, 3))
+        assert win._prop_labels["function"].cget("text") == "恒定输出"
+    finally:
+        root.destroy()
