@@ -4,6 +4,7 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
+from rbmk import BUILD, __version__
 from rbmk.app import theme
 from rbmk.app import icons as icon_store
 from rbmk.app.icons import get_icon
@@ -44,7 +45,7 @@ def _btn(parent, text, cmd, kind="normal"):
 class MainWindow:
     def __init__(self, root: tk.Tk):
         self.root = root
-        root.title("RBMK 反应堆模拟器 — HBM 核科技 1.7.10")
+        root.title(f"RBMK 反应堆模拟器 — HBM 核科技 1.7.10   v{__version__}.{BUILD}")
         root.geometry("1280x840")
         root.configure(bg=theme.BG)
         root.minsize(1000, 700)
@@ -159,7 +160,7 @@ class MainWindow:
                 onclick = lambda e, c=comp: self.select_tool(c.value)
             row = tk.Frame(parent, bg=theme.SURFACE, cursor="hand2")
             row.pack(fill="x", padx=4, pady=1)
-            icon = None if is_tool else get_icon(comp.value, 16)
+            icon = None if is_tool else get_icon(comp.value, 20)
             if icon is not None:
                 sw = tk.Label(row, image=icon, bg=theme.SURFACE, bd=0)
             else:

@@ -37,8 +37,22 @@ class GridEditor(tk.Frame):
         self.canvas.bind("<Configure>", lambda e: self.redraw())
 
     @property
+    def zoom(self) -> float:
+        """缩放系数；内部按「图标整数倍率」离散化（3 = 100%，格子 30px）。"""
+        return getattr(self, "_icon_scale", 3) / 3.0
+
+    @zoom.setter
+    def zoom(self, value: float) -> None:
+        self._icon_scale = max(1, min(6, int(round(float(value) * 3.0))))
+
+    @property
     def cell(self) -> int:
-        return max(12, int(26 * self.zoom))
+        """格子边长 = 10 × 图标整数倍率。
+
+        组件图标是模组 10×10 贴图，只有整数倍缩放才能让图标像素、格子边缘与叠加层
+        （按 cs/10 缩放）严格对齐；非整数倍会让图标内部条纹粗细不一、看起来"错位"。
+        """
+        return 10 * getattr(self, "_icon_scale", 3)
 
     def _origin(self):
         m = self.app.model
@@ -97,7 +111,8 @@ class GridEditor(tk.Frame):
             self.redraw()
 
     def _on_wheel(self, e):
-        self.zoom = max(0.55, min(1.9, self.zoom + (0.1 if e.delta > 0 else -0.1)))
+        # 每次滚轮切换一档图标倍率（格子 ±10px），保证始终是整数倍缩放
+        self.zoom = self.zoom + (1 / 3 if e.delta > 0 else -1 / 3)
         self.redraw()
 
     def _pan_start(self, e):
@@ -134,31 +149,40 @@ class GridEditor(tk.Frame):
                     ft = cell.fuel_type
                     if ft and ft.melting_point > 0 and cell.temp > 0.85 * ft.melting_point:
                         outline = theme.DANGER
-                cv.create_rectangle(x, y, x + cs, y + cs, fill=fill, outline=outline,
+                # 格子严格取 cs×cs 像素（x..x+cs-1），与图标、叠加层同一像素网格
+                cv.create_rectangle(x, y, x + cs - 1, y + cs - 1, fill=fill, outline=outline,
                                     width=3 if (cell is not None and behavior_of(cell.comp) == Behavior.CONTROL) else 1)
                 if cell is not None:
-                    # 用模组方块贴图作为图标（缺失时退回字母缩写）
+                    # 图标铺满整格，锚点左上角，保证与格子像素完全重合
                     icon = get_icon(cell.comp.value, max(10, cs))
                     if icon is not None:
-                        cv.create_image(x + cs / 2, y + cs / 2, image=icon)
+                        cv.create_image(x, y, anchor="nw", image=icon)
                     elif cs >= 18:
                         cv.create_text(x + cs / 2, y + cs / 2 + 1,
                                        text=COMPONENT_SHORT[cell.comp],
                                        fill="#0b0e11", font=(theme.FAMILY, max(6, cs // 4)))
                     # 控制台叠加层：热量红线 / 燃料三色条 / 水条与蒸汽类型点 / 分组色与插入条
+                    # 坐标一律取整到像素，避免每个格子的半像素舍入不同导致粗细/位置抖动
                     scale = cs / 10.0
                     for lx, ly, lw, lh, color in column_overlays(cell, self.app.model):
-                        cv.create_rectangle(x + lx * scale, y + ly * scale,
-                                            x + (lx + lw) * scale - 1, y + (ly + lh) * scale - 1,
+                        x1 = int(round(x + lx * scale))
+                        y1 = int(round(y + ly * scale))
+                        x2 = int(round(x + (lx + lw) * scale)) - 1
+                        y2 = int(round(y + (ly + lh) * scale)) - 1
+                        if x2 < x1:
+                            x2 = x1
+                        if y2 < y1:
+                            y2 = y1
+                        cv.create_rectangle(x1, y1, x2, y2,
                                             fill="#%02x%02x%02x" % color, outline="", width=0)
         if self.selected:
             sr, sc = self.selected
             x = ox + 2 + sc * (cs + 2)
             y = oy + 2 + sr * (cs + 2)
-            cv.create_rectangle(x - 2, y - 2, x + cs + 2, y + cs + 2, outline=theme.ACCENT, width=2)
+            cv.create_rectangle(x - 2, y - 2, x + cs + 1, y + cs + 1, outline=theme.ACCENT, width=2)
 
         cv.create_text(ox, max(8, oy - 6), anchor="sw", text="俯视堆芯",
                        fill=theme.MUTED, font=theme.FONT_SMALL)
         cv.create_text(ox + m.cols * (cs + 2), max(8, oy - 6), anchor="se",
-                       text=f"{m.cols}×{m.rows}   缩放 {int(self.zoom * 100)}%",
+                       text=f"{m.cols}×{m.rows}   格子 {self.cell}px",
                        fill=theme.MUTED, font=theme.FONT_SMALL)
