@@ -7,7 +7,6 @@ from rbmk.app.overlays import column_overlays
 from rbmk.model.components import (
     COMPONENT_INFO,
     COMPONENT_SHORT,
-    CONTROL_GROUP_COLORS,
     Behavior,
     ComponentType,
     behavior_of,
@@ -58,15 +57,15 @@ class GridEditor(tk.Frame):
         m = self.app.model
         w = max(self.canvas.winfo_width(), 1)
         h = max(self.canvas.winfo_height(), 1)
-        gw = m.cols * (self.cell + 2) + 2
-        gh = m.rows * (self.cell + 2) + 2
+        gw = m.cols * self.cell
+        gh = m.rows * self.cell
         return (w - gw) // 2 + self.pan_x, (h - gh) // 2 + self.pan_y
 
     def _cell_from_event(self, x, y):
         ox, oy = self._origin()
-        cs = self.cell + 2
-        c = (x - ox - 2) // cs
-        r = (y - oy - 2) // cs
+        cs = self.cell
+        c = int((x - ox) // cs)
+        r = int((y - oy) // cs)
         m = self.app.model
         if 0 <= r < m.rows and 0 <= c < m.cols:
             return int(r), int(c)
@@ -136,22 +135,20 @@ class GridEditor(tk.Frame):
         ox, oy = self._origin()
         for r in range(m.rows):
             for c in range(m.cols):
-                x = ox + 2 + c * (cs + 2)
-                y = oy + 2 + r * (cs + 2)
+                x = ox + c * cs
+                y = oy + r * cs
                 cell = m.grid[r][c]
                 if cell is None:
                     fill, outline = "#151a20", "#1f262e"
                 else:
-                    fill, outline = COMPONENT_INFO[cell.comp][1], "#0b0e11"
-                if cell is not None and behavior_of(cell.comp) == Behavior.CONTROL:
-                    outline = CONTROL_GROUP_COLORS.get(cell.group, "#0b0e11")
+                    # 已放置组件不画描边，图标之间紧密拼接、无缝隙（过热时才加红框）
+                    fill, outline = COMPONENT_INFO[cell.comp][1], ""
                 if cell is not None and behavior_of(cell.comp) == Behavior.FUEL:
                     ft = cell.fuel_type
                     if ft and ft.melting_point > 0 and cell.temp > 0.85 * ft.melting_point:
                         outline = theme.DANGER
                 # 格子严格取 cs×cs 像素（x..x+cs-1），与图标、叠加层同一像素网格
-                cv.create_rectangle(x, y, x + cs - 1, y + cs - 1, fill=fill, outline=outline,
-                                    width=3 if (cell is not None and behavior_of(cell.comp) == Behavior.CONTROL) else 1)
+                cv.create_rectangle(x, y, x + cs - 1, y + cs - 1, fill=fill, outline=outline, width=1)
                 if cell is not None:
                     # 图标铺满整格，锚点左上角，保证与格子像素完全重合
                     icon = get_icon(cell.comp.value, max(10, cs))
@@ -177,12 +174,12 @@ class GridEditor(tk.Frame):
                                             fill="#%02x%02x%02x" % color, outline="", width=0)
         if self.selected:
             sr, sc = self.selected
-            x = ox + 2 + sc * (cs + 2)
-            y = oy + 2 + sr * (cs + 2)
+            x = ox + sc * cs
+            y = oy + sr * cs
             cv.create_rectangle(x - 2, y - 2, x + cs + 1, y + cs + 1, outline=theme.ACCENT, width=2)
 
         cv.create_text(ox, max(8, oy - 6), anchor="sw", text="俯视堆芯",
                        fill=theme.MUTED, font=theme.FONT_SMALL)
-        cv.create_text(ox + m.cols * (cs + 2), max(8, oy - 6), anchor="se",
+        cv.create_text(ox + m.cols * cs, max(8, oy - 6), anchor="se",
                        text=f"{m.cols}×{m.rows}   格子 {self.cell}px",
                        fill=theme.MUTED, font=theme.FONT_SMALL)

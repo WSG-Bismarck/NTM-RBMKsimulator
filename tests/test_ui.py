@@ -749,17 +749,17 @@ def test_grid_cells_stay_aligned_when_overlays_drawn():
                        if abs((b[2] - b[0]) - cs) < 1.5 and abs((b[3] - b[1]) - cs) < 1.5]
         assert len(backgrounds) >= win.model.rows * win.model.cols - 1
         for b in backgrounds:
-            dx = (b[0] - (ox + 2)) % (cs + 2)
-            dy = (b[1] - (oy + 2)) % (cs + 2)
-            assert min(dx, cs + 2 - dx) < 1.5, f"矩形 x 未对齐网格: {b}"
-            assert min(dy, cs + 2 - dy) < 1.5, f"矩形 y 未对齐网格: {b}"
+            dx = (b[0] - ox) % cs
+            dy = (b[1] - oy) % cs
+            assert min(dx, cs - dx) < 1.5, f"矩形 x 未对齐网格: {b}"
+            assert min(dy, cs - dy) < 1.5, f"矩形 y 未对齐网格: {b}"
         # 燃料格背景必须存在于预期坐标
-        x = ox + 2 + 2 * (cs + 2)
-        y = oy + 2 + 2 * (cs + 2)
+        x = ox + 2 * cs
+        y = oy + 2 * cs
         assert any(abs(b[0] - x) < 1 and abs(b[1] - y) < 1 and b[2] - b[0] >= cs - 1 for b in boxes)
         # 不得有格子被推到网格区域外
-        right = ox + 2 + win.model.cols * (cs + 2)
-        bottom = oy + 2 + win.model.rows * (cs + 2)
+        right = ox + win.model.cols * cs
+        bottom = oy + win.model.rows * cs
         for b in boxes:
             assert b[2] <= right and b[3] <= bottom, f"图元超出网格区域: {b}"
     finally:
@@ -780,8 +780,8 @@ def test_grid_icons_fill_cell_exactly():
         images = [i for i in cv.find_all() if cv.type(i) == "image"]
         assert images
         b = cv.bbox(images[0])
-        x = ox + 2 + 2 * (cs + 2)
-        y = oy + 2 + 2 * (cs + 2)
+        x = ox + 2 * cs
+        y = oy + 2 * cs
         assert abs(b[0] - x) <= 1, f"图标左边未与格子对齐: {b} vs {x}"
         assert abs(b[1] - y) <= 1, f"图标上边未与格子对齐: {b} vs {y}"
         assert abs((b[2] - b[0] + 1) - cs) <= 2, f"图标宽度未铺满格子: {b}"
@@ -803,5 +803,51 @@ def test_toolbar_has_no_console_button():
                     texts.append(c.cget("text"))
         assert "控制台" not in texts
         assert not hasattr(win, "open_console")
+    finally:
+        root.destroy()
+
+
+def test_grid_cells_are_adjacent_without_gap():
+    """已放置组件之间不再有间隙：相邻格子的左边界相差正好一个格子边长。"""
+    win, root = _fresh()
+    try:
+        ge = win.grid_editor
+        cs = ge.cell
+        ox, oy = ge._origin()
+        ge.redraw()
+        cv = ge.canvas
+        xs = sorted({cv.coords(i)[0] for i in cv.find_all()
+                     if cv.type(i) == "rectangle" and abs((cv.coords(i)[2] - cv.coords(i)[0]) - (cs - 1)) < 1.5})
+        assert len(xs) >= win.model.cols - 1
+        for a, b in zip(xs[:win.model.cols - 1], xs[1:win.model.cols]):
+            assert abs((b - a) - cs) < 0.01, f"相邻格子间距应为 {cs}，实际 {b - a}"
+        assert abs(xs[0] - ox) < 0.01
+    finally:
+        root.destroy()
+
+
+def test_control_rod_has_no_group_color_frame():
+    """控制棒不再用分组颜色做外框：格子描边统一为常规深色、1px。"""
+    from rbmk.model.components import ComponentType, ControlGroup
+    win, root = _fresh()
+    try:
+        ge = win.grid_editor
+        cs = ge.cell
+        ox, oy = ge._origin()
+        win.model.place(3, 3, ComponentType.RBMK_CONTROL)
+        win.model.cell_at(3, 3).group = ControlGroup.RED
+        ge.redraw()
+        cv = ge.canvas
+        x, y = ox + 3 * cs, oy + 3 * cs
+        target = None
+        for i in cv.find_all():
+            if cv.type(i) != "rectangle":
+                continue
+            co = cv.coords(i)
+            if abs(co[0] - x) < 1 and abs(co[1] - y) < 1 and abs((co[2] - co[0]) - (cs - 1)) < 1.5:
+                target = i
+        assert target is not None
+        assert cv.itemcget(target, "outline") == ""
+        assert float(cv.itemcget(target, "width")) == 1.0
     finally:
         root.destroy()
