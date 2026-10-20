@@ -153,7 +153,7 @@
   - 普通模式：4 条正方向射线，每条 `1.0 ×` 通量，射程 `fluxRange = 5`。
   - ReaSim 模式：**8 条 45° 射线，每条 `0.75 ×` 通量**，射程同为 5；位置按 `floor(0.5 + v × i)` 步进（对角线会出现重复格，与模组一致）。
   - ReaSim 的节点扫描用半径 5 的圆形区域（`getReaSimNodes`：`x² + z² ≤ 25`），不是方形。
-  - 软件里顶部「模式：普通 / ReaSim」按钮全局切换；此外 `rbmk_rod_reasim`、`rbmk_rod_reasim_mod` 组件即使全局为普通模式，也按 ReaSim 的 8 向扩散。
+  - 软件里没有全局开关：与模组一致，只有 `rbmk_rod_reasim`、`rbmk_rod_reasim_mod` 这两种方块会 8 向扩散，普通燃料通道始终 4 向。
 - 燃料对快/慢中子的加权（`fluxFromType`）：
   - `SLOW`：`slow + fast × 0.5`
   - `FAST`：`fast + slow × 0.3`

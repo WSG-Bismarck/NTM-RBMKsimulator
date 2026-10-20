@@ -289,7 +289,7 @@ class SimulationEngine:
                     cell.hull_heat -= ret
                     cell.temp += ret
             if out_flux > 0.0:
-                if self.model.sim_mode == "reasim" or cell.comp in REASIM_COMPONENTS:
+                if cell.comp in REASIM_COMPONENTS:
                     self._spread_reasim(r, c, out_flux, out_ratio, cell)
                 else:
                     for dr, dc in DIRS:
