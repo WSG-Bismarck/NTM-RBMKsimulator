@@ -316,82 +316,66 @@ class SimulationEngine:
             cell.last_flux_ratio = cell.flux_ratio
 
     # ---------- 热量 ----------
-    def _heat_tick(self) -> None:
+    def _boil_normal(self, cells, hpm: float) -> float:
+        """普通蒸汽管道（TileEntityRBMKBoiler）：模组里在 moveHeat 之前执行。"""
         p = self.p
-        cells = [(r, c, cell) for r, c, cell in self.model.iter_cells()]
-
-        # 四邻平均扩散
-        for r, c, cell in cells:
-            nb = [self.model.cell_at(r + dr, c + dc) for dr, dc in DIRS]
-            nb = [n for n in nb if n is not None]
-            total = cell.temp + sum(n.temp for n in nb)
-            avg = total / (len(nb) + 1)
-            cell.temp += (avg - cell.temp) * p["column_heat_flow"]
-
-        # 按邻接数被动冷却（邻接越少冷却越强）
-        for r, c, cell in cells:
-            n = sum(1 for dr, dc in DIRS if self.model.cell_at(r + dr, c + dc) is not None)
-            outer = p["passive_cooling"]
-            inner = p["passive_cooling_inner"]
-            cooling = inner + (outer - inner) * ((4 - min(max(n, 0), 4)) / 4.0)
-            cell.temp -= cooling
-            if cell.temp < AMBIENT:
-                cell.temp = AMBIENT
-
-        # 锅炉：热量 -> 蒸汽
         steam = 0.0
-        hpm = p["boiler_heat_consumption"]       # 0.1 热量 / MB 水
-        if self.model.reasim_boilers:
-            # ReaSim 锅炉模式（方案B：每根柱都产汽，水/汽视为持续供应/排出）
-            speed = p["reasim_boiler_speed"]
-            cap = p["reasim_boiler_capacity"]
-            for r, c, cell in cells:
-                cell.steam_rate = 0.0
-                if cell.temp < 100.0:
-                    continue
-                avail_heat = (cell.temp - 100.0) / hpm
-                # 模组：min(可用热, 可用水, 剩余空间) × speed；方案B 只保留单柱容量上限
-                made = min(avail_heat, cap) * speed
-                if made <= 0.0:
-                    continue
-                cell.steam += made
-                cell.steam_rate = made
-                cell.temp -= made * hpm
-                steam += made
-        else:
-            for r, c, cell in cells:
-                if behavior_of(cell.comp) != Behavior.BOILER:
-                    continue
-                cell.steam_rate = 0.0
-                # 有限供水：水箱 + 每 tick 补水速率（模组里由管道补水）
-                feed = min(cell.water + p["boiler_water_supply"], p["boiler_feed"])
-                st = STEAM_TYPES.get(cell.steam_type, STEAM_TYPES["STEAM"])
-                # 模组：heatProvided = heat - getHeatFromSteam(当前蒸汽类型)
-                heat_provided = cell.temp - st.heat
-                if heat_provided <= 0.0:
-                    continue
-                # 模组产汽公式（TileEntityRBMKBoiler.func_145845_h）
-                if st.key == "ULTRAHOTSTEAM":
-                    made = heat_provided / hpm * 100.0 / st.factor
+        for r, c, cell in cells:
+            if behavior_of(cell.comp) != Behavior.BOILER:
+                continue
+            cell.steam_rate = 0.0
+            # 有限供水：水箱 + 每 tick 补水速率（模组里由管道补水）
+            feed = min(cell.water + p["boiler_water_supply"], p["boiler_feed"])
+            st = STEAM_TYPES.get(cell.steam_type, STEAM_TYPES["STEAM"])
+            # 模组：heatProvided = heat - getHeatFromSteam(当前蒸汽类型)
+            heat_provided = cell.temp - st.heat
+            if heat_provided <= 0.0:
+                continue
+            # 模组产汽公式（TileEntityRBMKBoiler.func_145845_h）
+            if st.key == "ULTRAHOTSTEAM":
+                made = heat_provided / hpm * 100.0 / st.factor
+                used = made / 100.0 * st.factor
+                if feed < used:
+                    made = feed * 100.0 / st.factor
                     used = made / 100.0 * st.factor
-                    if feed < used:
-                        made = feed * 100.0 / st.factor
-                        used = made / 100.0 * st.factor
-                else:
-                    used = min(heat_provided / hpm, feed)
-                    made = used * 100.0 / st.factor
-                # 每 tick 产出上限 = 模组蒸汽罐容量
-                if made > p["boiler_tank"]:
-                    made = p["boiler_tank"]
-                    used = made * st.factor / 100.0
-                cell.water = max(0.0, feed - used)
-                cell.steam += made
-                cell.steam_rate = made
-                cell.temp -= used * hpm
-                steam += made
-        self._steam_tick = steam
+            else:
+                used = min(heat_provided / hpm, feed)
+                made = used * 100.0 / st.factor
+            # 每 tick 产出上限 = 模组蒸汽罐容量
+            if made > p["boiler_tank"]:
+                made = p["boiler_tank"]
+                used = made * st.factor / 100.0
+            cell.water = max(0.0, feed - used)
+            cell.steam += made
+            cell.steam_rate = made
+            cell.temp -= used * hpm
+            steam += made
+        return steam
 
-        # 流体加热器（TileEntityRBMKHeater，FT_Heatable / HEATEXCHANGER）
+    def _boil_reasim(self, cells, hpm: float) -> float:
+        """ReaSim 锅炉（TileEntityRBMKBase.boilWater）：在 moveHeat 之后执行。"""
+        p = self.p
+        speed = p["reasim_boiler_speed"]
+        cap = p["reasim_boiler_capacity"]
+        steam = 0.0
+        for r, c, cell in cells:
+            cell.steam_rate = 0.0
+            if cell.temp < 100.0:
+                continue
+            avail_heat = (cell.temp - 100.0) / hpm
+            # 模组：min(可用热, 可用水, 剩余空间) × speed；方案B 只保留单柱容量上限
+            made = min(avail_heat, cap) * speed
+            if made <= 0.0:
+                continue
+            cell.steam += made
+            cell.steam_rate = made
+            cell.temp -= made * hpm
+            steam += made
+        return steam
+
+    def _run_heaters(self, cells) -> None:
+        """流体加热器（TileEntityRBMKHeater）：模组里在 moveHeat 之前执行。"""
+        p = self.p
         for r, c, cell in cells:
             if behavior_of(cell.comp) != Behavior.HEATER:
                 continue
@@ -417,6 +401,40 @@ class SimulationEngine:
             # 每刻热量产出 = 产量 × 产出流体单位热容量 × 可被冷却效率
             cell.heater_heat = produced * (hf.cool_heat / hf.cool_amount) * hf.cool_eff
             cell.temp -= hf.heat_req * ops / tu_per_degree * hf.eff
+
+    def _heat_tick(self) -> None:
+        p = self.p
+        cells = [(r, c, cell) for r, c, cell in self.model.iter_cells()]
+        hpm = p["boiler_heat_consumption"]       # 0.1 热量 / MB 水
+
+        # 模组顺序：锅炉 / 加热器 TE 先跑自身逻辑，最后调用 super 做 moveHeat
+        steam = 0.0
+        if not self.model.reasim_boilers:
+            steam += self._boil_normal(cells, hpm)
+        self._run_heaters(cells)
+
+        # 四邻平均扩散
+        for r, c, cell in cells:
+            nb = [self.model.cell_at(r + dr, c + dc) for dr, dc in DIRS]
+            nb = [n for n in nb if n is not None]
+            total = cell.temp + sum(n.temp for n in nb)
+            avg = total / (len(nb) + 1)
+            cell.temp += (avg - cell.temp) * p["column_heat_flow"]
+
+        # 按邻接数被动冷却（邻接越少冷却越强）
+        for r, c, cell in cells:
+            n = sum(1 for dr, dc in DIRS if self.model.cell_at(r + dr, c + dc) is not None)
+            outer = p["passive_cooling"]
+            inner = p["passive_cooling_inner"]
+            cooling = inner + (outer - inner) * ((4 - min(max(n, 0), 4)) / 4.0)
+            cell.temp -= cooling
+            if cell.temp < AMBIENT:
+                cell.temp = AMBIENT
+
+        # ReaSim 锅炉在 moveHeat（扩散 + 冷却）之后执行
+        if self.model.reasim_boilers:
+            steam += self._boil_reasim(cells, hpm)
+        self._steam_tick = steam
 
         # 熔毁判定（满足任一即熔毁）：
         #   1) 任一组件柱温 > maxHeat() = 1500

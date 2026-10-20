@@ -301,10 +301,10 @@ def test_boiler_steam_formula_exact():
     m = ReactorModel(5, 5)
     b = m.place(2, 2, BOIL)
     e = SimulationEngine(m)
-    b.temp = 502.5                   # 被动冷却 2.5 后为 500
+    b.temp = 502.5                   # 模组顺序：锅炉先烧（用 502.5），之后才被动冷却
     e._heat_tick()
-    # heatProvided=400 → 用水 4000 → 蒸汽 4000*100/1
-    assert abs(b.steam_rate - 400000.0) < 1e-6
+    # heatProvided=402.5 → 用水 4025 → 蒸汽 4025*100/1
+    assert abs(b.steam_rate - 402500.0) < 1e-6
 
 
 def test_boiler_steam_factor_ratio():
@@ -629,7 +629,8 @@ def test_boiler_full_tank_cools_to_steam_threshold():
     b.temp = 800.0
     b.water = 10000.0
     e._heat_tick()
-    assert abs(b.temp - 100.0) < 1e-9
+    # 锅炉先压到阈值 100，随后 moveHeat 的被动冷却再降 2.5
+    assert abs(b.temp - 97.5) < 1e-9
 
 
 # ---------- 反射体 / 吸收体 ----------
