@@ -519,3 +519,19 @@ def test_toolbar_toggles_reasim_boiler_mode():
         assert win.boiler_btn.cget("text") == "锅炉：普通"
     finally:
         root.destroy()
+
+
+def test_prop_panel_has_no_neighbor_count_or_heat_power():
+    """属性面板不再显示邻接数与热功率。"""
+    from rbmk.model.components import ComponentType
+    win, root = _fresh()
+    try:
+        win.select_tool(ComponentType.RBMK_ROD.value)
+        win.grid_editor._paint((2, 2))
+        win.on_select((2, 2))
+        assert "neighbors" not in win._prop_labels
+        assert "heat" not in win._prop_labels
+        assert "temp" in win._prop_labels
+        assert "cooling" in win._prop_labels
+    finally:
+        root.destroy()

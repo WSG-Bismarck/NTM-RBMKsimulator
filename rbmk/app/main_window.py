@@ -372,8 +372,6 @@ class MainWindow:
         if beh == Behavior.FUEL:
             self._prop_row("芯温", "core")
             self._prop_row("壳温", "hull")
-        self._prop_row("热功率（TU/tick）", "heat")
-        self._prop_row("邻接数", "neighbors")
         self._prop_row("被动冷却", "cooling")
         if beh == Behavior.FUEL:
             self._prop_row("接收通量", "flux")
@@ -441,8 +439,6 @@ class MainWindow:
             "temp": f"{cell.shown_temp:.1f} °C",
             "core": f"{cell.core_heat:.1f} °C",
             "hull": f"{cell.hull_heat:.1f} °C",
-            "heat": f"{cell.heat:.2f}",
-            "neighbors": str(n),
             "cooling": f"{cooling:.2f}/tick",
             "flux": f"{fq:.2f}",
             "fast": f"{fast:.2f}",
