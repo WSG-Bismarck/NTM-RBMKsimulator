@@ -465,7 +465,7 @@ class MainWindow:
         if behavior_of(cell.comp) == Behavior.CONTROL:
             vals["level"] = f"{1.0 - self.model.effective_insertion(cell) / 100.0:.2f}"
         if behavior_of(cell.comp) == Behavior.BOILER:
-            vals["steam"] = f"{cell.steam_rate:.2f}/tick"
+            vals["steam"] = f"{cell.steam_rate:.0f} mB/tick"
         if behavior_of(cell.comp) == Behavior.HEATER:
             vals["heater"] = f"{cell.heater_rate:.0f} mB/tick"
             vals["heater_heat"] = f"{cell.heater_heat:.0f} TU/tick"

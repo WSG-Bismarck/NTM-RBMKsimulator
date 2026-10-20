@@ -41,8 +41,7 @@ DEFAULT_PARAMS = {
     "absorber_efficiency": 1.0,      # RBMKKeys: dialAbsorberEfficiency = 1.0
     "absorber_heat_conversion": 0.05,  # RBMKKeys: dialAbsorberHeatConversion = 0.05
     "boiler_heat_consumption": 0.1,  # RBMKKeys: dialBoilerHeatConsumption = 0.1
-    "boiler_feed": 10000.0,          # 模组锅炉 feed 罐容量（MB）
-    "boiler_water_supply": 1000.0,   # 模型层：每 tick 补水速率（MB），有限供水才会出现 >100°C
+    "boiler_feed": 10000.0,          # 模组锅炉 feed 罐容量（MB），软件按无限供水处理
     "boiler_tank": 1000000.0,        # 模组锅炉 steam 罐容量（MB）→ 每 tick 产汽上限
     "reasim_boiler_speed": 0.05,     # RBMKKeys: dialReasimBoilerSpeed = 0.05
     "reasim_boiler_capacity": 16000.0,  # ReaSim 单柱水/汽容量（mB）
@@ -324,28 +323,29 @@ class SimulationEngine:
             if behavior_of(cell.comp) != Behavior.BOILER:
                 continue
             cell.steam_rate = 0.0
-            # 有限供水：水箱 + 每 tick 补水速率（模组里由管道补水）
-            feed = min(cell.water + p["boiler_water_supply"], p["boiler_feed"])
+            # 无限供水：每 tick 都按满水箱计算
+            feed = p["boiler_feed"]
             st = STEAM_TYPES.get(cell.steam_type, STEAM_TYPES["STEAM"])
             # 模组：heatProvided = heat - getHeatFromSteam(当前蒸汽类型)
             heat_provided = cell.temp - st.heat
             if heat_provided <= 0.0:
                 continue
-            # 模组产汽公式（TileEntityRBMKBoiler.func_145845_h）
+            # 模组产汽公式（TileEntityRBMKBoiler.func_145845_h），水量与蒸汽量都取整
             if st.key == "ULTRAHOTSTEAM":
-                made = heat_provided / hpm * 100.0 / st.factor
-                used = made / 100.0 * st.factor
+                made = math.floor(heat_provided / hpm * 100.0 / st.factor)
+                used = math.floor(made / 100.0 * st.factor)
                 if feed < used:
-                    made = feed * 100.0 / st.factor
-                    used = made / 100.0 * st.factor
+                    made = math.floor(feed * 100.0 / st.factor)
+                    used = math.floor(made / 100.0 * st.factor)
             else:
-                used = min(heat_provided / hpm, feed)
-                made = used * 100.0 / st.factor
+                used = math.floor(heat_provided / hpm)
+                used = min(used, feed)
+                made = math.floor(used * 100.0 / st.factor)
             # 每 tick 产出上限 = 模组蒸汽罐容量
             if made > p["boiler_tank"]:
                 made = p["boiler_tank"]
                 used = made * st.factor / 100.0
-            cell.water = max(0.0, feed - used)
+            cell.water = feed
             cell.steam += made
             cell.steam_rate = made
             cell.temp -= used * hpm
@@ -364,7 +364,7 @@ class SimulationEngine:
                 continue
             avail_heat = (cell.temp - 100.0) / hpm
             # 模组：min(可用热, 可用水, 剩余空间) × speed；方案B 只保留单柱容量上限
-            made = min(avail_heat, cap) * speed
+            made = math.floor(min(avail_heat, cap) * speed)
             if made <= 0.0:
                 continue
             cell.steam += made

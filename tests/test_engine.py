@@ -512,9 +512,9 @@ def test_reasim_boilers_every_column_produces_steam():
     mod.temp = 500.0
     e._heat_tick()
     # 冷却后 497.5；avail=(497.5-100)/0.1=3975；made=3975*0.05=198.75
-    assert abs(rod.steam_rate - 198.75) < 1e-9
-    assert abs(mod.steam_rate - 198.75) < 1e-9
-    assert abs(rod.temp - (497.5 - 19.875)) < 1e-9
+    assert abs(rod.steam_rate - 198.0) < 1e-9     # floor(3975*0.05)=198
+    assert abs(mod.steam_rate - 198.0) < 1e-9
+    assert abs(rod.temp - (497.5 - 19.8)) < 1e-9
 
 
 def test_reasim_boiler_cap_is_800_per_tick():
@@ -608,17 +608,17 @@ def test_heat_coeff_uses_core_temperature():
     assert abs(hot - base) > 1e-6
 
 
-def test_boiler_water_supply_limits_cooling():
-    """供水不足时，锅炉只能带走与水量对应的热量，柱温会停在 100 以上。"""
+def test_boiler_infinite_water_removes_heat_up_to_feed_cap():
+    """无限供水：每 tick 最多按 10,000 mB 水带走 1,000 热量。"""
     m = ReactorModel(3, 3)
     b = m.place(1, 1, BOIL)
-    e = SimulationEngine(m, {"boiler_water_supply": 1000.0})
+    e = SimulationEngine(m)
     b.temp = 2000.0
     b.water = 0.0
     e._heat_tick()
-    # 冷却后 1997.5；heatProvided=1897.5 → 需求 18975 mB；只有 1000 mB → 移除 100
-    assert abs(b.temp - 1897.5) < 1e-9
-    assert b.water == 0.0
+    # heatProvided=1900 → 需求 19000 mB，水箱 10000 → 移除 1000，再被动冷却 2.5
+    assert abs(b.temp - 997.5) < 1e-9
+    assert b.water == 10000.0
 
 
 def test_boiler_full_tank_cools_to_steam_threshold():

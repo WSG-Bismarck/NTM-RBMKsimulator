@@ -330,15 +330,15 @@ def test_boiler_prop_shows_steam_per_tick():
         win.engine._heat_tick()
         win.on_select((2, 2))
         text = win._prop_labels["steam"].cget("text")
-        assert text.endswith("/tick")
-        assert float(text[:-5]) > 0
+        assert text.endswith("mB/tick")
+        assert float(text.split()[0]) > 0
 
         win.engine._heat_tick()          # 温度降到 100 以下后不再产汽
         win.engine._heat_tick()
         win.engine._heat_tick()
         win.engine._heat_tick()
         win._refresh_prop_values()
-        assert win._prop_labels["steam"].cget("text") == "0.00/tick"
+        assert win._prop_labels["steam"].cget("text") == "0 mB/tick"
     finally:
         root.destroy()
 
