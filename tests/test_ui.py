@@ -756,3 +756,44 @@ def test_open_console_creates_and_reuses_window():
         win.console_window = None
     finally:
         root.destroy()
+
+
+def test_grid_cells_stay_aligned_when_overlays_drawn():
+    """回归：绘制叠加层时不得覆盖网格原点变量，所有格子必须落在网格坐标上。"""
+    from rbmk.model.components import ComponentType
+    win, root = _fresh()
+    try:
+        ge = win.grid_editor
+        cs = ge.cell
+        ox, oy = ge._origin()
+        # 两个燃料格 + 一个蒸汽管道格，确保叠加层被绘制
+        win.model.place(2, 2, ComponentType.RBMK_ROD)
+        c = win.model.cell_at(2, 2)
+        c.fuel = "rbmk_fuel_flashlead"
+        c.shown_temp = 770.0
+        c.hull_heat = 300.0
+        c.xenon = 40.0
+        win.model.place(5, 6, ComponentType.RBMK_BOILER)
+        ge.redraw()
+        cv = ge.canvas
+        boxes = [cv.coords(i) for i in cv.find_all() if cv.type(i) == "rectangle"]
+        # 每个格子背景矩形（尺寸≈cs）都应严格对齐 (ox+2+c*(cs+2), oy+2+r*(cs+2), +cs)
+        backgrounds = [b for b in boxes
+                       if abs((b[2] - b[0]) - cs) < 1.5 and abs((b[3] - b[1]) - cs) < 1.5]
+        assert len(backgrounds) >= win.model.rows * win.model.cols - 1
+        for b in backgrounds:
+            dx = (b[0] - (ox + 2)) % (cs + 2)
+            dy = (b[1] - (oy + 2)) % (cs + 2)
+            assert min(dx, cs + 2 - dx) < 1.5, f"矩形 x 未对齐网格: {b}"
+            assert min(dy, cs + 2 - dy) < 1.5, f"矩形 y 未对齐网格: {b}"
+        # 燃料格背景必须存在于预期坐标
+        x = ox + 2 + 2 * (cs + 2)
+        y = oy + 2 + 2 * (cs + 2)
+        assert any(abs(b[0] - x) < 1 and abs(b[1] - y) < 1 and b[2] - b[0] >= cs - 1 for b in boxes)
+        # 不得有格子被推到网格区域外
+        right = ox + 2 + win.model.cols * (cs + 2)
+        bottom = oy + 2 + win.model.rows * (cs + 2)
+        for b in boxes:
+            assert b[2] <= right and b[3] <= bottom, f"图元超出网格区域: {b}"
+    finally:
+        root.destroy()
