@@ -1006,3 +1006,41 @@ def test_reasim_steam_rate_is_zero_in_normal_mode():
     e._heat_tick()
     assert b.reasim_steam_rate == 0.0
     assert abs(b.steam_rate - 400000.0) < 1e-6
+
+
+def test_reasim_steam_is_superhot_steam_for_power():
+    """模组出口把 reasimSteam 以超热蒸汽导出（TileEntityRBMKOutlet: SUPERHOTSTEAM），
+    所以发电量按 238 HE/mB 计，而不是燃料柱自己的 steam_type。"""
+    m = ReactorModel(3, 3)
+    blank = m.place(1, 1, ComponentType.RBMK_BLANK)
+    m.reasim_boilers = True
+    e = SimulationEngine(m)
+    blank.temp = 500.0
+    e._begin_tick()
+    e._heat_tick()
+    e._end_tick()
+    e._update_state()
+    assert abs(blank.reasim_steam_rate - 198.0) < 1e-6
+    assert abs(e.state.electricity - 198.0 * 238.0) < 1e-6
+
+
+def test_reasim_boiler_splits_normal_and_superhot_steam():
+    """蒸汽管道在 ReaSim 模式下：普通段按自身蒸汽类型计，ReaSim 段按超热蒸汽计。"""
+    m = ReactorModel(3, 3)
+    hot = m.place(2, 1, ComponentType.RBMK_BLANK)
+    boil = m.place(2, 2, BOIL)
+    m.reasim_boilers = True
+    e = SimulationEngine(m)
+    hot.temp = 1200.0
+    boil.temp = 500.0
+    e._begin_tick()
+    e._heat_tick()
+    e._end_tick()
+    e._update_state()
+    assert boil.reasim_steam_rate > 0
+    # ReaSim 模式下所有柱都产汽：普通段（只有蒸汽管道有）按 STEAM=2，ReaSim 段按超热=238
+    total_normal = sum(c.steam_rate - c.reasim_steam_rate for _, _, c in m.iter_cells())
+    total_reasim = sum(c.reasim_steam_rate for _, _, c in m.iter_cells())
+    assert total_reasim > boil.reasim_steam_rate
+    expected = total_normal * 2.0 + total_reasim * 238.0
+    assert abs(e.state.electricity - expected) < 1e-6

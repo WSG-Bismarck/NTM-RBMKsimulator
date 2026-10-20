@@ -271,6 +271,7 @@
   `processed = floor(min(availableHeat, availableWater, availableSpace) × clamp(dialReasimBoilerSpeed, 0, 1))`；
   `reasimWater -= processed`；`reasimSteam += processed`；`heat -= processed × 0.1`。
 - `dialReasimBoilerSpeed` 默认 **0.05**（每 tick 只处理上限的 5%）；水→蒸汽 **1:1**（普通蒸汽管道是 1:100）；单柱上限 16,000 mB → 每 tick 最多 800 mB。
+- **产出蒸汽类型 = 超热蒸汽（SUPERHOTSTEAM）**：`TileEntityRBMKOutlet` 的罐子是 `new FluidTank(Fluids.SUPERHOTSTEAM, 32000)`，出口把各柱 `reasimSteam` 抽进这个罐；进口 `TileEntityRBMKInlet` 吃的是 `Fluids.WATER`。所以 ReaSim 是 1 mB 水 → 1 mB 超热蒸汽（普通蒸汽管道是 1 mB 水 → 100 mB 普通蒸汽）。按汽轮机换算，ReaSim 蒸汽 238 HE/mB，普通蒸汽 2 HE/mB。
 - **蒸汽管道在 ReaSim 模式下仍会执行自己的普通产汽逻辑**：`TileEntityRBMKBoiler.func_145845_h` 先跑自己的 1:100 产汽（无条件），末尾 `super.func_145845_h()` 才走 `moveHeat()` + `boilWater()`。因此一根蒸汽管道开启 ReaSim 后是「普通产汽 + ReaSim 产汽」两段叠加；普通段通常已把柱温压到 100°C，ReaSim 段往往不再出货。软件已按此实现（`steam_rate` 两段累加）。
 - 软件采用方案 B：不实现 ReaSim 进水口/蒸汽出口，水与蒸汽视为持续供应/排出，只保留单柱 16,000 mB 上限；顶部「锅炉：普通 / 锅炉：ReaSim」按钮切换。
 

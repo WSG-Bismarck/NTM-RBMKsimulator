@@ -540,10 +540,15 @@ class SimulationEngine:
         # 瞬时发电量（HE/tick）：每 tick 产出的各类蒸汽，按最优路径（逐级冷却到低压蒸汽）
         # 经汽轮机换算成 HE。汽轮机效率 eff_steam_turbine = 1.0。
         he = 0.0
+        superhot = STEAM_TYPES["SUPERHOTSTEAM"]
         for _, _, cell in self.model.iter_cells():
             if cell.steam_rate > 0.0:
+                # 模组里 ReaSim 的 reasimSteam 由出口以「超热蒸汽」（SUPERHOTSTEAM）导出：
+                # TileEntityRBMKOutlet.steam = new FluidTank(Fluids.SUPERHOTSTEAM, 32000)
+                normal = max(0.0, cell.steam_rate - cell.reasim_steam_rate)
                 st = STEAM_TYPES.get(cell.steam_type, STEAM_TYPES["STEAM"])
-                he += cell.steam_rate * st.he_per_mb
+                he += normal * st.he_per_mb
+                he += cell.reasim_steam_rate * superhot.he_per_mb
         s.electricity = he
         s.total_energy += he
 

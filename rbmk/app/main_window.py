@@ -414,7 +414,7 @@ class MainWindow:
         if beh == Behavior.BOILER:
             self._prop_row("每刻蒸汽产生量", "steam")
         if self.model.reasim_boilers:
-            self._prop_row("每刻 ReaSim 蒸汽产量", "reasim_steam")
+            self._prop_row("每刻 ReaSim 蒸汽产量（超热蒸汽）", "reasim_steam")
         if beh == Behavior.COOLER:
             self._prop_row("每刻消耗冷四氟甲烷", "cooler_use")
             self._prop_row("作用柱数（5×5）", "cooler_cells")
