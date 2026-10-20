@@ -34,6 +34,7 @@ class Cell:
     steam: float = 0.0
     steam_rate: float = 0.0            # 每 tick 产汽量
     shown_temp: float = 25.0           # 模组该柱自己 tick 结束时的温度快照（控制台显示值）
+    seq: int = 0                       # 放置顺序（模组里同一区块的 TE 按加入顺序 tick）
     steam_type: str = "STEAM"          # 蒸汽类型（STEAM/HOTSTEAM/SUPERHOTSTEAM/ULTRAHOTSTEAM）
     heater_fluid: str = "COOLANT"      # 流体加热器输入流体（默认冷却液）
     heater_rate: float = 0.0           # 每刻加热流体产量（mB/tick）
@@ -63,6 +64,7 @@ class Cell:
             "temp": self.temp,
             "steam_type": self.steam_type,
             "heater_fluid": self.heater_fluid,
+            "seq": self.seq,
         }
 
     @classmethod
@@ -77,6 +79,7 @@ class Cell:
             temp=float(d.get("temp", 25.0)),
             steam_type=d.get("steam_type", "STEAM"),
             heater_fluid=d.get("heater_fluid", "COOLANT"),
+            seq=int(d.get("seq", 0)),
         )
 
 
@@ -91,6 +94,7 @@ class ReactorModel:
     coolant_flow: float = 50.0
     control_mode: str = "global"
     reasim_boilers: bool = False      # ReaSim 锅炉模式：整堆每根柱都产汽（1:1、5%/tick）
+    _seq: int = field(default=0, init=False, repr=False, compare=False)
 
     def __post_init__(self):
         if not self.grid:
@@ -106,6 +110,8 @@ class ReactorModel:
             raise IndexError("坐标越界")
         cell = Cell(comp=comp, **kw)
         cell.has_rod = cell.fuel_type is not None and cell.fuel != "rbmk_fuel_empty"
+        cell.seq = self._seq
+        self._seq += 1
         self.grid[r][c] = cell
         return cell
 
@@ -122,6 +128,12 @@ class ReactorModel:
                 cell = self.grid[r][c]
                 if cell is not None:
                     yield r, c, cell
+
+    def iter_cells_placed(self):
+        """按放置顺序遍历（对应模组同一区块内 TE 的 tick 顺序）。"""
+        cells = list(self.iter_cells())
+        cells.sort(key=lambda x: x[2].seq)
+        return iter(cells)
 
     def counts(self) -> dict[ComponentType, int]:
         out = {t: 0 for t in ComponentType}
@@ -175,6 +187,7 @@ class ReactorModel:
         for item in d.get("cells", []):
             cell = Cell.from_dict(item)
             m.grid[int(item["r"])][int(item["c"])] = cell
+            m._seq = max(m._seq, cell.seq + 1)
         return m
 
 

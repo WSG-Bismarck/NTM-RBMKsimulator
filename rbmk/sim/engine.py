@@ -395,7 +395,9 @@ class SimulationEngine:
         """逐柱执行，顺序与模组 TE tick 一致：
         锅炉/加热器自身逻辑 → moveHeat（自身+四邻）→ 被动冷却 → ReaSim 产汽。"""
         p = self.p
-        cells = [(r, c, cell) for r, c, cell in self.model.iter_cells()]
+        # 模组里同一区块的 TE 按加入顺序 tick（HashMap 同桶内为插入顺序），
+        # 因此逐柱处理必须按放置顺序，否则同一构型换个方向摆放读数就会变。
+        cells = [(r, c, cell) for r, c, cell in self.model.iter_cells_placed()]
         hpm = p["boiler_heat_consumption"]       # 0.1 热量 / MB 水
         reasim = self.model.reasim_boilers
         steam = 0.0

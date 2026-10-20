@@ -808,3 +808,22 @@ def test_provide_heat_over_melt_branch_averages_three():
     assert abs(rod.core_heat - avg) < 1e-9
     assert abs(rod.hull_heat - avg) < 1e-9
     assert abs(rod.temp - avg) < 1e-9
+
+
+def test_display_temp_is_independent_of_coordinates():
+    """同一构型换个方向摆放，读数必须一致：逐柱 tick 按「放置顺序」而不是坐标。"""
+    def run(coords):
+        m = ReactorModel(5, 5)
+        rod = m.place(*coords[0], ROD_MOD, fuel="rbmk_fuel_flashlead")
+        boil = m.place(*coords[1], BOIL)
+        refl = m.place(*coords[2], REFL)
+        e = SimulationEngine(m)
+        e.advance(200.0)
+        return (rod.shown_temp, boil.shown_temp, refl.shown_temp)
+
+    a = run([(2, 1), (2, 2), (2, 3)])
+    b = run([(2, 3), (2, 2), (2, 1)])
+    c = run([(1, 2), (2, 2), (3, 2)])
+    for other in (b, c):
+        for x, y in zip(a, other):
+            assert abs(x - y) < 0.01
