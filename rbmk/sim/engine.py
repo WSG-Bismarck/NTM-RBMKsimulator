@@ -342,7 +342,8 @@ class SimulationEngine:
                 ops = p["heater_tank"] / hf.amount_produced
                 produced = p["heater_tank"]
             cell.heater_rate = produced
-            cell.heater_heat = hf.heat_req * ops
+            # 每刻热量产出 = 产量 × 产出流体单位热容量 × 可被冷却效率
+            cell.heater_heat = produced * (hf.cool_heat / hf.cool_amount) * hf.cool_eff
             cell.temp -= hf.heat_req * ops / tu_per_degree * hf.eff
 
         # 熔毁判定（满足任一即熔毁）：

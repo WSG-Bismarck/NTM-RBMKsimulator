@@ -351,8 +351,8 @@ def test_heater_water_produces_steam():
     e._heat_tick()
     # 产出被输出罐容量 16000 mB/tick 限制
     assert abs(h.heater_rate - 16000.0) < 1e-6
-    # ops=160 → 热量产出 200*160 = 32000 TU/tick
-    assert abs(h.heater_heat - 32000.0) < 1e-6
+    # 热量产出 = 16000 × (200/100) × 0.5 = 16000 TU/tick
+    assert abs(h.heater_heat - 16000.0) < 1e-6
     # 热移除 = 200*160/500*0.25 = 16
     assert abs(h.temp - (400.0 - 2.5 - 16.0)) < 1e-6
 
@@ -380,6 +380,7 @@ def test_heater_oil_rate_and_heat_removal():
     e._heat_tick()
     # 产出被输出罐容量限制；ops=16000 → 热移除 = 10*16000/2000 = 80
     assert abs(h.heater_rate - 16000.0) < 1e-6
+    assert abs(h.heater_heat - 160000.0) < 1e-6
     assert abs(h.temp - 417.5) < 1e-6
 
 
