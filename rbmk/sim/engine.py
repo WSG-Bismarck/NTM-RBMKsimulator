@@ -275,54 +275,63 @@ class SimulationEngine:
             rad = math.radians(deg)
             self._cast_vector(r, c, math.cos(rad), math.sin(rad), f, ratio, origin)
 
-    def _neutron_tick(self) -> None:
-        p = self.p
+    def _begin_tick(self) -> None:
+        """清空本 tick 的接收缓冲，并推导是否有燃料棒。"""
         for _, _, cell in self.model.iter_cells():
             cell.flux_q = 0.0
             cell.flux_ratio = 0.0
-            # 每 tick 从当前燃料推导，确保后放入/改过燃料的棒也会被处理
             cell.has_rod = cell.fuel_type is not None and cell.fuel != "rbmk_fuel_empty"
 
-        rods = [(r, c, cell) for r, c, cell in self.model.iter_cells()
-                if cell.has_rod and cell.fuel_type is not None]
+    def _end_tick(self) -> None:
+        """把本 tick 接收到的通量存为下一 tick 的燃烧输入（模组 fluxQuantity → 下一 tick）。"""
+        for _, _, cell in self.model.iter_cells():
+            if cell.has_rod:
+                cell.last_flux_q = cell.flux_q
+                cell.last_flux_ratio = cell.flux_ratio
 
-        for r, c, cell in rods:
-            ft = cell.fuel_type
-            flux_in = flux_from_type(ft, cell.last_flux_q, cell.last_flux_ratio)
-            out_flux, out_ratio = self._burn(cell, ft, flux_in)
-            cell.flux = out_flux
-            cell.heat = out_flux * ft.heat
-            # 芯 -> 壳 -> 柱 热链（ItemRBMKRod.burn / updateHeat / provideHeat）
-            cell.core_heat = _clamp(cell.core_heat + cell.heat, 20.0, 1_000_000.0)
+    def _rod_step(self, cell) -> tuple[float, float]:
+        """燃料棒 tick 前半段：burn → updateHeat → provideHeat（在 moveHeat 之前）。
 
-            # updateHeat：只有芯温 > 壳温时才向壳传热（模组 if (coreHeat > hullHeat)）
-            if cell.core_heat > cell.hull_heat:
-                mid = (cell.core_heat - cell.hull_heat) / 2.0
-                diff = mid * ft.diffusion * p["fuel_diffusion_mod"]
-                cell.core_heat = _clamp(cell.core_heat - diff, 20.0, 1_000_000.0)
-                cell.hull_heat = _clamp(cell.hull_heat + diff, 20.0, 1_000_000.0)
+        模组里这段和 moveHeat 都在同一根柱自己的 tick 内执行，所以此处的
+        cell.temp 可能已经被「先 tick 的邻柱」更新过。
+        """
+        p = self.p
+        ft = cell.fuel_type
+        flux_in = flux_from_type(ft, cell.last_flux_q, cell.last_flux_ratio)
+        out_flux, out_ratio = self._burn(cell, ft, flux_in)
+        cell.flux = out_flux
+        cell.heat = out_flux * ft.heat
+        cell.core_heat = _clamp(cell.core_heat + cell.heat, 20.0, 1_000_000.0)
 
-            # provideHeat
-            if cell.hull_heat > ft.melting_point:
-                # 壳温超过燃料熔点：芯/壳/柱三者取平均，热量快速灌入柱体
-                avg = (cell.temp + cell.hull_heat + cell.core_heat) / 3.0
-                cell.core_heat = avg
-                cell.hull_heat = avg
-                cell.temp = avg
-            elif cell.hull_heat > cell.temp:
-                ret = (cell.hull_heat - cell.temp) / 2.0 * p["heat_provision"]
-                cell.hull_heat -= ret
-                cell.temp += ret
-            if out_flux > 0.0:
-                if cell.comp in REASIM_COMPONENTS:
-                    self._spread_reasim(r, c, out_flux, out_ratio, cell)
-                else:
-                    for dr, dc in DIRS:
-                        self._cast(r, c, dr, dc, out_flux, out_ratio, cell)
+        # updateHeat：只有芯温 > 壳温时才向壳传热
+        if cell.core_heat > cell.hull_heat:
+            mid = (cell.core_heat - cell.hull_heat) / 2.0
+            diff = mid * ft.diffusion * p["fuel_diffusion_mod"]
+            cell.core_heat = _clamp(cell.core_heat - diff, 20.0, 1_000_000.0)
+            cell.hull_heat = _clamp(cell.hull_heat + diff, 20.0, 1_000_000.0)
 
-        for _, _, cell in rods:
-            cell.last_flux_q = cell.flux_q
-            cell.last_flux_ratio = cell.flux_ratio
+        # provideHeat
+        if cell.hull_heat > ft.melting_point:
+            # 条件②：壳温一旦超过燃料熔点即判定熔毁（模组随后仍会做三者均分）
+            self.state.melted = True
+            avg = (cell.temp + cell.hull_heat + cell.core_heat) / 3.0
+            cell.core_heat = avg
+            cell.hull_heat = avg
+            cell.temp = avg
+        elif cell.hull_heat > cell.temp:
+            ret = (cell.hull_heat - cell.temp) / 2.0 * p["heat_provision"]
+            cell.hull_heat -= ret
+            cell.temp += ret
+        return out_flux, out_ratio
+
+    def _emit(self, r: int, c: int, cell, out_flux: float, out_ratio: float) -> None:
+        if out_flux <= 0.0:
+            return
+        if cell.comp in REASIM_COMPONENTS:
+            self._spread_reasim(r, c, out_flux, out_ratio, cell)
+        else:
+            for dr, dc in DIRS:
+                self._cast(r, c, dr, dc, out_flux, out_ratio, cell)
 
     # ---------- 热量 ----------
     def _boil_one(self, cell, hpm: float) -> float:
@@ -407,7 +416,10 @@ class SimulationEngine:
 
         for r, c, cell in cells:
             b = behavior_of(cell.comp)
-            if not reasim and b == Behavior.BOILER:
+            emitted = None
+            if b == Behavior.FUEL and cell.has_rod and cell.fuel_type is not None:
+                emitted = self._rod_step(cell)
+            elif not reasim and b == Behavior.BOILER:
                 steam += self._boil_one(cell, hpm)
             elif b == Behavior.HEATER:
                 self._heat_one(cell)
@@ -429,6 +441,9 @@ class SimulationEngine:
 
             if reasim:
                 steam += self._boil_one_reasim(cell, hpm)
+
+            if emitted is not None:
+                self._emit(r, c, cell, emitted[0], emitted[1])
 
             # 模组里每根柱在自己的 tick 结束时把 heat 同步给客户端；
             # 控制台/物品提示显示的就是这个「自己 tick 结束时」的快照，
@@ -496,8 +511,9 @@ class SimulationEngine:
         for _ in range(n):
             if self.state.melted:
                 break
-            self._neutron_tick()
+            self._begin_tick()
             self._heat_tick()
+            self._end_tick()
             self._update_state()
 
 

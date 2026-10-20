@@ -481,7 +481,9 @@ def test_normal_channel_does_not_hit_diagonal_cells():
     m.place(2, 2, ROD, fuel=SRC)
     d = m.place(3, 3, ROD, fuel=HEU)
     e = SimulationEngine(m)
-    e._neutron_tick()
+    e._begin_tick()
+    e._heat_tick()
+    e._end_tick()
     assert d.flux_q == 0.0
 
 
@@ -490,7 +492,9 @@ def test_reasim_rod_component_spreads_8_ways():
     m.place(2, 2, ComponentType.RBMK_ROD_REASIM, fuel=SRC)
     d = m.place(3, 3, ROD, fuel=HEU)
     e = SimulationEngine(m)
-    e._neutron_tick()
+    e._begin_tick()
+    e._heat_tick()
+    e._end_tick()
     assert abs(d.flux_q - 50.0 * 0.75) < 1e-9
 
 
@@ -499,7 +503,9 @@ def test_reasim_mod_rod_component_spreads_8_ways():
     m.place(2, 2, ComponentType.RBMK_ROD_REASIM_MOD, fuel=SRC)
     d = m.place(3, 3, ROD, fuel=HEU)
     e = SimulationEngine(m)
-    e._neutron_tick()
+    e._begin_tick()
+    e._heat_tick()
+    e._end_tick()
     assert abs(d.flux_q - 50.0 * 0.75) < 1e-9
 
 
@@ -547,7 +553,8 @@ def test_hull_heat_reaches_column_even_without_flux():
     rod.core_heat = 1000.0
     rod.hull_heat = 800.0
     rod.temp = 20.0
-    e._neutron_tick()
+    e._begin_tick()
+    e._rod_step(rod)
     # mid=100, diff=100*0.02=2 → core 998, hull 802
     # ret=(802-20)/2*0.2=78.2 → hull 723.8, 柱温 98.2
     assert abs(rod.core_heat - 998.0) < 1e-9
@@ -563,7 +570,8 @@ def test_core_heat_does_not_flow_back_to_hull():
     rod.core_heat = 100.0
     rod.hull_heat = 500.0
     rod.temp = 20.0
-    e._neutron_tick()
+    e._begin_tick()
+    e._rod_step(rod)
     assert abs(rod.core_heat - 100.0) < 1e-9
     assert abs(rod.hull_heat - 452.0) < 1e-9
     assert abs(rod.temp - 68.0) < 1e-9
@@ -577,7 +585,8 @@ def test_hull_above_melting_point_equalizes_core_hull_column():
     rod.core_heat = 3000.0
     rod.hull_heat = 3000.0
     rod.temp = 300.0
-    e._neutron_tick()
+    e._begin_tick()
+    e._rod_step(rod)
     assert abs(rod.core_heat - 2100.0) < 1e-9
     assert abs(rod.hull_heat - 2100.0) < 1e-9
     assert abs(rod.temp - 2100.0) < 1e-9
@@ -786,7 +795,8 @@ def test_provide_heat_normal_branch_matches_jar():
     rod.core_heat = 100.0                        # 芯 < 壳，updateHeat 不动作
     rod.hull_heat = 1000.0
     rod.temp = 200.0
-    e._neutron_tick()
+    e._begin_tick()
+    e._rod_step(rod)
     assert abs(rod.hull_heat - 920.0) < 1e-9     # 1000 − (1000−200)/2×0.2 = 920
     assert abs(rod.temp - 280.0) < 1e-9          # 200 + 80
     assert abs(rod.core_heat - 100.0) < 1e-9
@@ -803,7 +813,8 @@ def test_provide_heat_over_melt_branch_averages_three():
     rod.core_heat = 3000.0
     rod.hull_heat = hull0
     rod.temp = 200.0
-    e._neutron_tick()
+    e._begin_tick()
+    e._rod_step(rod)
     avg = (200.0 + 3000.0 + hull0) / 3.0        # updateHeat 守恒，三者和不变
     assert abs(rod.core_heat - avg) < 1e-9
     assert abs(rod.hull_heat - avg) < 1e-9

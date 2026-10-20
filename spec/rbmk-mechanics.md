@@ -175,7 +175,7 @@
 - 只调整自身、或把扩散放到所有柱处理完之后，都会让燃料柱与邻柱的温度分配偏离模组。
 - 被动冷却：`heat -= passiveCoolingInner(0.1) + (passiveCooling(2.5) - 0.1) × ((4 - 邻接数) / 4)`，下限 20。
 - **显示口径**：每根柱在自己的 `func_145845_h` 末尾 `networkPackNT` 同步 `heat`，所以游戏里控制台/物品提示看到的是「自己 tick 结束」的快照，之后还会被后 tick 的邻柱再改一次。软件用 `Cell.shown_temp` 保存该快照供界面显示；熔毁/风险判定仍用真实的 `Cell.temp`。
-- 燃料棒热链（`ItemRBMKRod.burn / updateHeat / provideHeat`，**每 tick 都执行**，与是否产热无关）：
+- 燃料棒热链（`ItemRBMKRod.burn / updateHeat / provideHeat`，**每 tick 都执行**，与是否产热无关），且**在燃料棒自己那一根柱的 tick 内**执行（burn → updateHeat → provideHeat → moveHeat → cool → 发射中子），所以 `provideHeat` 用到的柱温可能已被先 tick 的邻柱更新过：
   - `core = rectify(core + outFlux × heat)`，`rectify` 夹在 20..1e6
   - **仅当** `core > hull`：`mid = (core - hull) / 2`；`core -= mid × diffusion × diffusionMod`；`hull += mid × diffusion × diffusionMod`（模组不做逆向传热）
   - 若 `hull > meltingPoint`：`avg = (columnHeat + hull + core) / 3`；`core = hull = columnHeat = avg`
