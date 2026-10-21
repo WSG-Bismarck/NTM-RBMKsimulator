@@ -4,6 +4,8 @@
 
 俯视网格搭建堆芯，实时模拟「堆芯 → 蒸汽 → 汽轮机发电」整条链路，数值与机制按模组 jar 反编译逐项还原。
 
+![主界面](docs/screenshot-main.png)
+
 ## 功能
 
 - **18 种反应堆组件、34 种燃料**，名称取自模组 `zh_CN.lang`
@@ -64,10 +66,22 @@ build.bat
 rbmk/
   model/    组件、燃料数据、反应堆数据模型、存档
   sim/      仿真引擎（中子、热链、蒸汽、发电）与风险评估
-  app/      tkinter 界面（网格、属性面板、曲线、控制台叠加层、悬停提示）
+  app/      tkinter 界面（网格、属性面板、曲线、控制台叠加层、悬停提示、使用说明弹窗）
   assets/   图标与 GUI 贴图
 tests/      单元与界面测试
 spec/       模组机制还原规格
-快速上手.md  面向新手的四页说明
+docs/       设计文档（PRD、开发计划、UI 原型）与主界面截图
+快速上手.md  面向新手的简要说明（软件内「使用说明」按钮显示的内容）
 使用说明.md  完整功能说明
 ```
+
+## 从源码运行与打包
+
+```
+pip install -r requirements.txt
+python main.py          # 直接运行
+python -m pytest -q     # 跑测试
+build.bat               # 测试通过后打包 dist/RBMK-Simulator.exe
+```
+
+打包时会把 `rbmk/assets` 与 `快速上手.md` 一并写入 exe。
