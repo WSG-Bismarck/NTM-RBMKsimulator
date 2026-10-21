@@ -18,8 +18,9 @@ def test_six_zones_and_counts():
         assert hasattr(win, "sb_state")
         assert len(win._palette_items) == 18
         assert len(win._tab_btns) == 4
-        # 6 项关键数值标签
-        assert set(win._metric_labels) == {"temp", "flux", "steam", "power", "total", "fuel"}
+        # 9 项关键数值标签
+        assert set(win._metric_labels) == {"temp", "surf", "ctl", "steam",
+                                           "power", "total", "fuel", "xenon", "flux"}
     finally:
         root.destroy()
 
@@ -432,12 +433,16 @@ def test_metrics_bar_titles_and_placeholders():
             return out
 
         titles = texts(win.metrics)
-        for title in ("反应堆平均温度", "平均中子通量", "蒸汽产量",
-                      "瞬时发电量", "累计发电量", "燃料平均寿命"):
+        for title in ("反应堆平均温度", "燃料平均表面温度", "控制棒平均插入深度",
+                      "蒸汽产量（mB/tick）", "瞬时发电量", "累计发电量",
+                      "燃料平均寿命", "氙中毒平均程度", "平均中子通量"):
             assert title in titles
 
         assert win._metric_labels["temp"].cget("text").endswith("°C")
-        assert win._metric_labels["steam"].cget("text").endswith("mB/s")
+        assert win._metric_labels["steam"].cget("text").endswith("mB/tick")
+        assert win._metric_labels["surf"].cget("text").endswith("°C")
+        assert win._metric_labels["ctl"].cget("text").endswith("%")
+        assert win._metric_labels["xenon"].cget("text").endswith("%")
         assert win._metric_labels["power"].cget("text").endswith("HE/tick")
         assert win._metric_labels["total"].cget("text").endswith("HE")
         assert win._metric_labels["fuel"].cget("text").endswith("%")

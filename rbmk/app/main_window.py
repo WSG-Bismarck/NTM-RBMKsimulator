@@ -91,25 +91,28 @@ class MainWindow:
         bottom.pack_propagate(False)
         self.chart = ChartPanel(bottom, self)
         self.chart.pack(side="left", fill="both", expand=True)
-        self.metrics = tk.Frame(bottom, bg=theme.SURFACE, width=320)
+        self.metrics = tk.Frame(bottom, bg=theme.SURFACE, width=430)
         self.metrics.pack(side="right", fill="y")
         self.metrics.pack_propagate(False)
         self._metric_labels = {}
+        cols = 3
         for i, (key, title) in enumerate([
-            ("temp", "反应堆平均温度"), ("flux", "平均中子通量"),
-            ("steam", "蒸汽产量"), ("power", "瞬时发电量"),
-            ("total", "累计发电量"), ("fuel", "燃料平均寿命"),
+            ("temp", "反应堆平均温度"), ("surf", "燃料平均表面温度"),
+            ("ctl", "控制棒平均插入深度"), ("steam", "蒸汽产量（mB/tick）"),
+            ("power", "瞬时发电量"), ("total", "累计发电量"),
+            ("fuel", "燃料平均寿命"), ("xenon", "氙中毒平均程度"),
+            ("flux", "平均中子通量"),
         ]):
             box = tk.Frame(self.metrics, bg=theme.SURFACE2, bd=2, relief="sunken")
-            box.grid(row=i // 2, column=i % 2, sticky="nsew", padx=4, pady=4)
+            box.grid(row=i // cols, column=i % cols, sticky="nsew", padx=3, pady=3)
             tk.Label(box, text=title, bg=theme.SURFACE2, fg=theme.MUTED,
                      font=theme.FONT_SMALL, anchor="w").pack(fill="x", padx=8, pady=(6, 0))
             val = tk.Label(box, text="—", bg=theme.SURFACE2, fg=theme.INK,
                            font=theme.FONT_BOLD, anchor="w")
             val.pack(fill="x", padx=8, pady=(0, 6))
             self._metric_labels[key] = val
-        self.metrics.grid_columnconfigure(0, weight=1)
-        self.metrics.grid_columnconfigure(1, weight=1)
+        for _c in range(cols):
+            self.metrics.grid_columnconfigure(_c, weight=1)
 
         body = tk.Frame(self.root, bg=theme.BG)
         body.pack(fill="both", expand=True)
@@ -324,12 +327,30 @@ class MainWindow:
         self.sb_state.configure(text=level_text, fg=level_color)
         r = assess(self.engine)
         self.sb_safety.configure(text="预计安全运行时长 " + format_duration(r.time_to_meltdown))
+        fuels = [c for _, _, c in self.model.iter_cells()
+                 if behavior_of(c.comp) == Behavior.FUEL and c.fuel_type is not None]
+        surface = sum(c.hull_heat for c in fuels) / len(fuels) if fuels else 0.0
+        controls = [c for _, _, c in self.model.iter_cells()
+                    if behavior_of(c.comp) == Behavior.CONTROL]
+        if controls:
+            insertions = []
+            for c in controls:
+                if c.comp in (ComponentType.RBMK_CONTROL_AUTO, ComponentType.RBMK_CONTROL_REASIM_AUTO):
+                    insertions.append(100.0 * (1.0 - c.level))
+                else:
+                    insertions.append(self.model.effective_insertion(c))
+            ctl_avg = sum(insertions) / len(insertions)
+        else:
+            ctl_avg = 0.0
         self._metric_labels["temp"].configure(text=f"{s.avg_temperature:.0f} °C")
-        self._metric_labels["flux"].configure(text=f"{s.avg_flux:.2f}")
-        self._metric_labels["steam"].configure(text=f"{s.steam:.0f} mB/s")
+        self._metric_labels["surf"].configure(text=f"{surface:.0f} °C")
+        self._metric_labels["ctl"].configure(text=f"{ctl_avg:.0f}%")
+        self._metric_labels["steam"].configure(text=f"{s.steam / 20.0:,.0f} mB/tick")
         self._metric_labels["power"].configure(text=f"{s.electricity:,.0f} HE/tick")
         self._metric_labels["total"].configure(text=f"{s.total_energy:,.0f} HE")
         self._metric_labels["fuel"].configure(text=f"{s.fuel_remaining:.1f}%")
+        self._metric_labels["xenon"].configure(text=f"{s.xenon:.1f}%")
+        self._metric_labels["flux"].configure(text=f"{s.avg_flux:.2f}")
 
     def _refresh_all(self):
         self._paint_palette()
