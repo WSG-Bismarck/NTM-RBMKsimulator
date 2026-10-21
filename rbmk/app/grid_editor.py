@@ -13,6 +13,50 @@ from rbmk.model.components import (
 )
 
 
+class HoverTip:
+    """光标跟随提示框（仿原版物品提示：深色底 + 立体边框）。"""
+
+    BG = "#100010"
+    BORDER = "#3a0f4a"
+
+    def __init__(self, master):
+        self.win = tk.Toplevel(master)
+        self.win.withdraw()
+        self.win.overrideredirect(True)
+        try:
+            self.win.attributes("-topmost", True)
+        except tk.TclError:
+            pass
+        self.frame = tk.Frame(self.win, bg=self.BORDER, bd=0)
+        self.frame.pack()
+        self.label = tk.Label(self.frame, text="", bg=self.BG, fg="#ffffff",
+                              font=(theme.FAMILY, 9), justify="left", anchor="w")
+        self.label.pack(padx=6, pady=4)
+        self._text = None
+
+    def show(self, text: str, x_root: int, y_root: int):
+        if text != self._text:
+            self._text = text
+            self.label.configure(text=text)
+        self.win.deiconify()
+        self.win.update_idletasks()
+        w, h = self.win.winfo_width(), self.win.winfo_height()
+        sw, sh = self.win.winfo_screenwidth(), self.win.winfo_screenheight()
+        x = min(max(0, x_root + 16), max(0, sw - w - 4))
+        y = min(max(0, y_root + 14), max(0, sh - h - 4))
+        self.win.geometry(f"+{x}+{y}")
+
+    def hide(self):
+        self._text = None
+        self.win.withdraw()
+
+    def destroy(self):
+        try:
+            self.win.destroy()
+        except tk.TclError:
+            pass
+
+
 class GridEditor(tk.Frame):
     def __init__(self, master, app):
         super().__init__(master, bg=theme.BG)
@@ -30,6 +74,11 @@ class GridEditor(tk.Frame):
         self.canvas.bind("<B1-Motion>", self._on_drag)
         self.canvas.bind("<ButtonRelease-1>", self._on_up)
         self.canvas.bind("<Button-3>", self._on_right)
+        self.tip = HoverTip(self)
+        self._tip_rc = None
+        self.canvas.bind("<Motion>", self._on_motion)
+        self.canvas.bind("<Leave>", lambda e: self._hide_tip())
+        self.bind("<Destroy>", self._on_destroy)
         self.canvas.bind("<MouseWheel>", self._on_wheel)
         self.canvas.bind("<Button-2>", self._pan_start)
         self.canvas.bind("<B2-Motion>", self._pan_move)
@@ -71,6 +120,72 @@ class GridEditor(tk.Frame):
             return int(r), int(c)
         return None
 
+    # ---------------- 悬停提示 ----------------
+    def _on_destroy(self, e):
+        if e.widget is self:
+            self.tip.destroy()
+
+    def _hide_tip(self):
+        self._tip_rc = None
+        if getattr(self, "tip", None) is not None:
+            self.tip.hide()
+
+    def tooltip_text(self, cell, rc):
+        """组件悬停信息（纯函数，便于测试）。"""
+        name = COMPONENT_INFO[cell.comp][0]
+        beh = behavior_of(cell.comp)
+        temp = cell.shown_temp if cell.shown_temp else cell.temp
+        lines = [f"{name}    {rc[0] + 1}行 {rc[1] + 1}列", f"柱温 {temp:.1f} °C"]
+        if beh == Behavior.FUEL:
+            ft = cell.fuel_type
+            if ft is None:
+                lines.append("无燃料棒")
+            else:
+                lines.append(f"燃料 {ft.name_cn}")
+                lines.append(f"芯温 {cell.core_heat:.1f} °C   壳温 {cell.hull_heat:.1f} °C")
+                lines.append(f"燃耗 {cell.burnup * 100:.2f}%   氙毒 {cell.xenon:.1f}%")
+                if cell.flux > 0:
+                    lines.append(f"中子通量 {cell.flux:,.0f}")
+        elif beh == Behavior.CONTROL:
+            group = cell.group.value if cell.group is not None else "空置"
+            if cell.comp == ComponentType.RBMK_CONTROL_AUTO or cell.comp == ComponentType.RBMK_CONTROL_REASIM_AUTO:
+                lines.append(f"控制组 {group}   透过率 {cell.level:.2f}")
+                lines.append(f"目标透过率 {cell.target_level:.2f}")
+            else:
+                ins = self.app.model.effective_insertion(cell)
+                lines.append(f"控制组 {group}   插入深度 {ins:.0f}%")
+        elif beh == Behavior.BOILER:
+            st = cell.steam_type
+            lines.append(f"蒸汽类型 {st}")
+            lines.append(f"每刻产汽 {cell.steam_rate:,.0f} mB/tick")
+            if getattr(cell, "reasim_steam_rate", 0):
+                lines.append(f"其中 ReaSim {cell.reasim_steam_rate:,.0f} mB/tick")
+        elif beh == Behavior.COOLER:
+            lines.append(f"每刻消耗 {cell.cooler_rate:,.0f} mB/tick")
+            lines.append(f"作用柱数 {cell.cooler_cells}")
+        elif beh == Behavior.HEATER:
+            lines.append(f"流体 {cell.heater_fluid}")
+            lines.append(f"产量 {cell.heater_rate:,.0f} mB/tick")
+            lines.append(f"热量 {cell.heater_heat:,.0f} TU/tick")
+        elif cell.fuel is not None:
+            ft = cell.fuel_type
+            if ft is not None:
+                lines.append(f"燃料 {ft.name_cn}")
+        return chr(10).join(lines)
+
+    def _on_motion(self, e):
+        rc = self._cell_from_event(e.x, e.y)
+        if not rc:
+            self._hide_tip()
+            return
+        cell = self.app.model.cell_at(*rc)
+        if cell is None:
+            self._hide_tip()
+            return
+        if rc != self._tip_rc:
+            self._tip_rc = rc
+        self.tip.show(self.tooltip_text(cell, rc), e.x_root, e.y_root)
+
     def _paint(self, rc):
         if rc is None:
             return
@@ -92,6 +207,7 @@ class GridEditor(tk.Frame):
         self.redraw()
 
     def _on_down(self, e):
+        self._hide_tip()
         self._painting = True
         self._paint(self._cell_from_event(e.x, e.y))
 
@@ -103,6 +219,7 @@ class GridEditor(tk.Frame):
         self._painting = False
 
     def _on_right(self, e):
+        self._hide_tip()
         rc = self._cell_from_event(e.x, e.y)
         if rc:
             self.app.model.erase(*rc)
@@ -110,6 +227,7 @@ class GridEditor(tk.Frame):
             self.redraw()
 
     def _on_wheel(self, e):
+        self._hide_tip()
         # 每次滚轮切换一档图标倍率（格子 ±10px），保证始终是整数倍缩放
         self.zoom = self.zoom + (1 / 3 if e.delta > 0 else -1 / 3)
         self.redraw()

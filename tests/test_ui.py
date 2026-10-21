@@ -912,3 +912,52 @@ def test_overview_has_turbine_selectors():
         assert "174,080" in win._turbine_labels["STEAM"].cget("text")
     finally:
         root.destroy()
+
+
+def test_hover_tip_shows_component_info():
+    """鼠标悬停在组件上时，跟随光标显示组件名称、柱温等关键信息。"""
+    from rbmk.model.components import ComponentType
+
+    win, root = _fresh()
+    try:
+        ge = win.grid_editor
+        rod = win.model.place(2, 3, ComponentType.RBMK_ROD)
+        rod.fuel = "rbmk_fuel_flashlead"
+        rod.shown_temp = 812.3
+        rod.hull_heat = 500.0
+        rod.core_heat = 3800.0
+        rod.xenon = 12.0
+        text = ge.tooltip_text(rod, (2, 3))
+        assert "RBMK反应堆燃料通道" in text
+        assert "柱温 812.3" in text
+        assert "闪光铅" in text
+        assert "壳温 500.0" in text
+        assert "3行 4列" in text
+
+        boiler = win.model.place(4, 4, ComponentType.RBMK_BOILER)
+        boiler.steam_type = "SUPERHOTSTEAM"
+        boiler.steam_rate = 12345.0
+        boiler.shown_temp = 480.0
+        btext = ge.tooltip_text(boiler, (4, 4))
+        assert "RBMK反应堆蒸汽管道" in btext
+        assert "每刻产汽 12,345 mB/tick" in btext
+
+        # 模拟鼠标移到燃料柱上
+        cs = ge.cell
+        ox, oy = ge._origin()
+        class _E:
+            x = ox + 3 * cs + cs / 2
+            y = oy + 2 * cs + cs / 2
+            x_root = 400
+            y_root = 300
+        ge._on_motion(_E())
+        root.update()
+        assert ge.tip.win.winfo_ismapped()
+        assert "柱温 812.3" in ge.tip.label.cget("text")
+
+        # 离开网格后隐藏
+        ge._hide_tip()
+        root.update()
+        assert not ge.tip.win.winfo_ismapped()
+    finally:
+        root.destroy()
