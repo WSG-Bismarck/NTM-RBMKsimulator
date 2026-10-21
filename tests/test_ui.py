@@ -1010,3 +1010,32 @@ def test_tooltip_marks_moderating_components():
             assert all(t != "慢化剂" for t, _ in lines), comp
     finally:
         root.destroy()
+
+
+def test_custom_speed_entry():
+    """速度栏可输入任意数值；非法输入不改变当前速度，超大值被夹到上限。"""
+    win, root = _fresh()
+    try:
+        assert win.speed_entry.winfo_exists()
+        win.speed_var.set("2500")
+        win.apply_custom_speed()
+        assert win.speed == 2500
+
+        win.speed_var.set("abc")
+        win.apply_custom_speed()
+        assert win.speed == 2500, "非法输入不应改变速度"
+
+        win.speed_var.set("9999999")
+        win.apply_custom_speed()
+        assert win.speed == 1_000_000
+        assert win.speed_var.get() == "1000000"
+
+        win.speed_var.set("30x")
+        win.apply_custom_speed()
+        assert win.speed == 30
+
+        # 点预设按钮时输入框同步
+        win.set_speed(100)
+        assert win.speed_var.get() == "100"
+    finally:
+        root.destroy()

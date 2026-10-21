@@ -144,6 +144,16 @@ class MainWindow:
             b.configure(font=theme.FONT_SMALL, padx=6, pady=2)
             b.pack(side="left", padx=2, pady=7)
             self.speed_btns[s] = b
+        # 自定义速度：输入任意正整数后回车或点「应用」
+        tk.Label(grp, text="自定义", bg=theme.SURFACE, fg=theme.MUTED,
+                 font=theme.FONT_SMALL).pack(side="left", padx=(8, 2))
+        self.speed_var = tk.StringVar(value="")
+        self.speed_entry = tk.Entry(grp, textvariable=self.speed_var, width=7, justify="right",
+                                    bg=theme.SURFACE2, fg=theme.INK, relief="sunken", bd=2,
+                                    insertbackground=theme.INK, font=theme.FONT_SMALL)
+        self.speed_entry.pack(side="left", pady=7)
+        self.speed_entry.bind("<Return>", lambda e: self.apply_custom_speed())
+        _btn(grp, "应用", self.apply_custom_speed).pack(side="left", padx=(2, 0), pady=7)
 
     def _build_palette(self, parent):
         left = tk.Frame(parent, bg=theme.SURFACE, width=210, bd=2, relief="raised")
@@ -269,9 +279,32 @@ class MainWindow:
 
     def set_speed(self, s):
         self.speed = s
+        entry = getattr(self, "speed_entry", None)
+        if entry is not None and entry.winfo_exists() and (self.speed_var.get() or "").strip() != str(s):
+            self.speed_var.set(str(s))
         for k, b in self.speed_btns.items():
             b.configure(bg=theme.BUTTON_PRIMARY if k == s else theme.BUTTON_BG,
                         fg=theme.BUTTON_FG, relief="sunken" if k == s else "raised")
+
+    def apply_custom_speed(self):
+        """应用输入框里的自定义模拟速度（正整数，上限 1,000,000x）。"""
+        raw = (self.speed_var.get() or "").strip().lower().rstrip("x").strip()
+        try:
+            value = int(float(raw))
+        except (TypeError, ValueError):
+            self._flag_speed_error()
+            return
+        value = max(1, min(1_000_000, value))
+        self.speed_var.set(str(value))
+        self.set_speed(value)
+
+    def _flag_speed_error(self):
+        """输入非法时把输入框短暂标红。"""
+        entry = getattr(self, "speed_entry", None)
+        if entry is None:
+            return
+        entry.configure(bg="#ffd0d0")
+        self.root.after(900, lambda: entry.winfo_exists() and entry.configure(bg=theme.SURFACE2))
 
     def toggle_run(self):
         self.running = not self.running
