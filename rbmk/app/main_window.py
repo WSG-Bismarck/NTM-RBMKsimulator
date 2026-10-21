@@ -469,9 +469,14 @@ class MainWindow:
                      font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(6, 2))
             sc = tk.Scale(p, from_=0, to=100, orient="horizontal", showvalue=False,
                           bg=theme.SURFACE, fg=theme.INK, troughcolor=theme.BORDER,
-                          highlightthickness=0, command=lambda v: self._set_single(cell, v))
+                          highlightthickness=0)
+            # 先 set 再挂 command：避免建面板时把当前值写成"单根覆盖"
             sc.set(self.model.effective_insertion(cell))
+            sc.configure(command=lambda v: self._set_single(cell, v))
             sc.pack(fill="x")
+            if cell.insertion is not None:
+                _btn(p, "清除单根覆盖（跟随分组/全局）",
+                     lambda c=cell: self._clear_single(c)).pack(fill="x", pady=(6, 0))
         elif beh == Behavior.BOILER:
             tk.Label(p, text="蒸汽类型", bg=theme.SURFACE, fg=theme.MUTED,
                      font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(2, 2))
@@ -865,6 +870,7 @@ class MainWindow:
                 cell.steam_type = st.key
                 break
         self._refresh_prop_values()
+        self.grid_editor.redraw()
 
     def _set_heater_fluid(self, cell, name):
         for hf in HEAT_FLUIDS.values():
@@ -875,11 +881,19 @@ class MainWindow:
 
     def _set_single(self, cell, v):
         cell.insertion = float(v)
+        self.grid_editor.redraw()
+
+    def _clear_single(self, cell):
+        """取消单根覆盖，重新跟随分组/全局设定。"""
+        cell.insertion = None
+        self.render_panel()
+        self.grid_editor.redraw()
 
     def _set_global(self, v):
         self.model.global_insertion = float(v)
         if getattr(self, "_lbl_global", None) is not None:
             self._lbl_global.configure(text=f"全局插入深度 {self.model.global_insertion:.0f}%")
+        self.grid_editor.redraw()
 
     def _set_all_steam_types(self, name):
         for st in STEAM_TYPES.values():
@@ -901,6 +915,7 @@ class MainWindow:
 
     def _set_group_val(self, group, v):
         self.model.group_insertion[group.value] = float(v)
+        self.grid_editor.redraw()
 
     def _reset_groups(self):
         self.model.group_insertion.clear()

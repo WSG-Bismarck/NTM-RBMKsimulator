@@ -727,7 +727,7 @@ def test_column_overlays_match_console_coordinates():
     assert colors[(3, 1, 1, 8)] == (0, 38, 255)   # 分组色两条竖线 x+3 / x+6
     assert colors[(6, 1, 1, 8)] == (0, 38, 255)
     # 手动棒穿透到插入条：fr = 8 - ceil(0.25*8) = 6
-    assert any(r[:4] == (4, 1, 2, 6) for r in rects)
+    assert any(r[:4] == (4, 1, 2, 2) for r in rects)
 
 
 def test_grid_cells_stay_aligned_when_overlays_drawn():
@@ -1120,5 +1120,90 @@ def test_reasim_control_shows_power_requirement():
         texts = panel_texts()
         assert "供电需求（移动时）" in texts
         assert "当前插入度" in texts
+    finally:
+        root.destroy()
+
+
+def test_control_bar_grows_with_insertion():
+    """控制棒插入越深，主网格里的插入条越长（0% 无条、100% 满 8）。"""
+    from rbmk.app.overlays import column_overlays
+    from rbmk.model.components import ComponentType
+
+    win, root = _fresh()
+    try:
+        cell = win.model.place(2, 2, ComponentType.RBMK_CONTROL)
+
+        def bar_height(ins):
+            cell.insertion = float(ins)
+            rects = column_overlays(cell, win.model)
+            bars = [r for r in rects if r[:3] == (4, 1, 2)]
+            return bars[0][3] if bars else 0
+
+        assert bar_height(0) == 0
+        assert bar_height(25) == 2
+        assert bar_height(50) == 4
+        assert bar_height(100) == 8
+    finally:
+        root.destroy()
+
+
+def test_global_and_group_control_work_after_selecting():
+    """选中控制棒后面板不应把当前值写成单根覆盖；全局/分组滑块仍然生效。"""
+    from rbmk.model.components import ComponentType, ControlGroup
+
+    win, root = _fresh()
+    try:
+        cell = win.model.place(2, 2, ComponentType.RBMK_CONTROL)
+        # 初始状态：0% 插入
+        assert win.model.global_insertion == 0.0
+        assert win.model.effective_insertion(cell) == 0.0
+
+        win.on_select((2, 2))
+        root.update()
+        assert cell.insertion is None, "打开属性面板不应写入单根覆盖"
+
+        win._set_global(70)
+        assert win.model.effective_insertion(cell) == 70.0
+
+        # 分组控制优先于全局
+        cell.group = ControlGroup.RED
+        win._set_group_val(ControlGroup.RED, 30)
+        assert win.model.effective_insertion(cell) == 30.0
+        win._set_global(90)
+        assert win.model.effective_insertion(cell) == 30.0
+
+        # 单根覆盖 → 再清除，回到分组
+        win._set_single(cell, 10)
+        assert win.model.effective_insertion(cell) == 10.0
+        win._clear_single(cell)
+        assert cell.insertion is None
+        assert win.model.effective_insertion(cell) == 30.0
+    finally:
+        root.destroy()
+
+
+def test_steam_type_change_redraws_grid():
+    """切换蒸汽类型后主网格立即重绘，蒸汽类型点跟着换位置。"""
+    from rbmk.app.overlays import column_overlays
+    from rbmk.model.components import ComponentType
+
+    win, root = _fresh()
+    try:
+        cell = win.model.place(2, 2, ComponentType.RBMK_BOILER)
+        cell.steam_type = "STEAM"
+        calls = {"n": 0}
+        real_redraw = win.grid_editor.redraw
+
+        def counting():
+            calls["n"] += 1
+            real_redraw()
+
+        win.grid_editor.redraw = counting
+        win._set_steam_type(cell, "超热蒸汽")
+        assert cell.steam_type == "SUPERHOTSTEAM"
+        assert calls["n"] >= 1, "切换蒸汽类型后必须重绘网格"
+        dots = [r for r in column_overlays(cell, win.model) if r[4] == (255, 195, 195)]
+        assert dots and dots[0][:4] == (4, 5, 2, 2)
+        win.grid_editor.redraw = real_redraw
     finally:
         root.destroy()

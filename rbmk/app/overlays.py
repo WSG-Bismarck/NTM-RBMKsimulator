@@ -100,11 +100,12 @@ def column_overlays(cell, model, max_heat: float = MAX_HEAT):
             out.append((6, 1, 1, 8, color))
 
     if kind in ("CONTROL", "CONTROL_AUTO"):
+        # 插入深度越大，条越长（自上而下），与棒体实际插入方向一致
         if kind == "CONTROL_AUTO":
             frac = max(0.0, min(1.0, 1.0 - cell.level))
         else:
             frac = max(0.0, min(1.0, model.effective_insertion(cell) / 100.0))
-        fr = 8 - int(math.ceil(frac * 8.0))
+        fr = int(min(max(math.ceil(frac * 8.0), 0), 8))
         out.append((4, 1, 2, fr, C_AUTO))
 
     return [r for r in out if r[3] > 0 and r[2] > 0]

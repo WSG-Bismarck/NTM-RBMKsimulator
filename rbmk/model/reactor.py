@@ -113,7 +113,7 @@ class ReactorModel:
     grid: list[list[Optional[Cell]]] = field(default_factory=list)
 
     turbines: dict[str, str] = field(default_factory=dict)   # 蒸汽类型 -> 汽轮机种类
-    global_insertion: float = 100.0
+    global_insertion: float = 0.0   # 初始状态：所有控制棒 0% 插入（完全抽出）
     group_insertion: dict[str, Optional[float]] = field(default_factory=dict)
     coolant_flow: float = 50.0
     control_mode: str = "global"
