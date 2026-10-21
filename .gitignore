@@ -23,3 +23,6 @@ desktop.ini
 
 # 本地仓库导出包
 *.bundle
+
+# 发布产物
+release/
