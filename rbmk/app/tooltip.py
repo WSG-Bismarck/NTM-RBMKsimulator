@@ -11,6 +11,7 @@ C_BURN = "#55ff55"   # 燃耗（绿）
 C_XENON = "#ff55ff"  # 氙毒（紫）
 C_SURFACE = "#ff8888"  # 表面温度（浅红）
 C_MODERATOR = "#ffff55"  # 慢化剂（黄）
+C_POWER = "#ffaa00"      # 供电需求（橙）
 C_NAME = "#ffffff"
 
 

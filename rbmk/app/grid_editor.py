@@ -8,6 +8,7 @@ from rbmk.app.tooltip import (
     C_BURN,
     C_DEFAULT,
     C_MODERATOR,
+    C_POWER,
     C_SURFACE,
     C_TEMP,
     C_XENON,
@@ -16,6 +17,7 @@ from rbmk.app.tooltip import (
 from rbmk.model.components import (
     COMPONENT_INFO,
     MODERATED_COMPONENTS,
+    REASIM_CONTROL_COMPONENTS,
     COMPONENT_SHORT,
     Behavior,
     ComponentType,
@@ -124,6 +126,8 @@ class GridEditor(tk.Frame):
             else:
                 ins = self.app.model.effective_insertion(cell)
                 lines.append((f"控制组 {group}   插入深度 {ins:.0f}%", C_DEFAULT))
+            if cell.comp in REASIM_CONTROL_COMPONENTS:
+                lines.append(("需供电 5,000 HE/tick（缓冲 50,000 HE）", C_POWER))
         elif beh == Behavior.BOILER:
             stype = STEAM_TYPES.get(cell.steam_type)
             lines.append((f"蒸汽类型 {stype.name_cn if stype else cell.steam_type}", C_DEFAULT))

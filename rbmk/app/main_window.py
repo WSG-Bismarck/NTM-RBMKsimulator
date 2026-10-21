@@ -12,6 +12,9 @@ from rbmk.app.chart_panel import ChartPanel
 from rbmk.app.grid_editor import GridEditor
 from rbmk.model import save_load
 from rbmk.model.components import (
+    REASIM_CONTROL_COMPONENTS,
+    CONTROL_POWER_BUFFER,
+    CONTROL_POWER_CONSUMPTION,
     TURBINE_KINDS,
     TURBINE_NAMES_CN,
     turbine_capacity_he,
@@ -507,8 +510,11 @@ class MainWindow:
             self._prop_row("裂变所需中子类型", "ntype_in")
             self._prop_row("裂变产生中子类型", "ntype_out")
         if beh == Behavior.CONTROL:
-            auto = cell.comp == ComponentType.RBMK_CONTROL_AUTO
+            auto = cell.comp in (ComponentType.RBMK_CONTROL_AUTO, ComponentType.RBMK_CONTROL_REASIM_AUTO)
             self._prop_row("当前插入度" if auto else "有效 level", "level")
+            if cell.comp in REASIM_CONTROL_COMPONENTS:
+                self._prop_row("供电需求（移动时）", "power_need")
+                self._prop_row("能量缓冲", "power_buffer")
         if beh == Behavior.BOILER:
             self._prop_row("每刻蒸汽产生量", "steam")
         if self.model.reasim_boilers:
@@ -573,6 +579,9 @@ class MainWindow:
                 vals["level"] = f"{cell.level:.3f}（目标 {cell.target_level:.3f}）"
             else:
                 vals["level"] = f"{1.0 - self.model.effective_insertion(cell) / 100.0:.2f}"
+        if cell.comp in REASIM_CONTROL_COMPONENTS:
+            vals["power_need"] = f"{CONTROL_POWER_CONSUMPTION:,} HE/tick"
+            vals["power_buffer"] = f"{CONTROL_POWER_BUFFER:,} HE"
         if behavior_of(cell.comp) == Behavior.BOILER:
             vals["steam"] = f"{cell.steam_rate:.0f} mB/tick"
         if self.model.reasim_boilers:

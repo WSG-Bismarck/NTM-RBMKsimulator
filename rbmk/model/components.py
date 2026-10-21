@@ -129,6 +129,16 @@ MODERATED_COMPONENTS: frozenset[ComponentType] = frozenset({
     ComponentType.RBMK_CONTROL_MOD,
 })
 
+# ReaSim 控制棒是电动执行机构（TileEntityRBMKControl.isPowered()）：
+# 从方块下方接电，移动时每 tick 扣 5000 HE，缓冲上限 50000 HE，电不足则停在原位。
+# 模拟器不设电网，仅在界面标注该需求（方案 B）。
+REASIM_CONTROL_COMPONENTS: frozenset[ComponentType] = frozenset({
+    ComponentType.RBMK_CONTROL_REASIM,
+    ComponentType.RBMK_CONTROL_REASIM_AUTO,
+})
+CONTROL_POWER_CONSUMPTION = 5_000
+CONTROL_POWER_BUFFER = 50_000
+
 # ReaSim 燃料通道：8 方向 45° 扩散（TileEntityRBMKRodReaSim.spreadFlux）
 REASIM_COMPONENTS: frozenset[ComponentType] = frozenset({
     ComponentType.RBMK_ROD_REASIM,

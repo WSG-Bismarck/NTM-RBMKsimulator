@@ -1074,3 +1074,51 @@ def test_guide_button_opens_quick_start():
         win._guide_win = None
     finally:
         root.destroy()
+
+
+def test_reasim_control_shows_power_requirement():
+    """ReaSim 控制棒标注供电需求（5000 HE/tick、缓冲 50000 HE）；普通控制棒不标注。"""
+    from rbmk.model.components import ComponentType
+
+    win, root = _fresh()
+    try:
+        def panel_texts():
+            out = []
+            stack = [win.panel]
+            while stack:
+                w = stack.pop()
+                stack.extend(w.winfo_children())
+                if w.winfo_class() == "Label":
+                    out.append(w.cget("text"))
+            return out
+
+        reasim = win.model.place(2, 2, ComponentType.RBMK_CONTROL_REASIM)
+        win.on_select((2, 2))
+        root.update()
+        texts = panel_texts()
+        assert "供电需求（移动时）" in texts
+        assert "能量缓冲" in texts
+        assert "5,000 HE/tick" in texts
+        assert "50,000 HE" in texts
+
+        # 提示框同样标注
+        tt = [t for t, _ in win.grid_editor.tooltip_lines(reasim, (2, 2))]
+        assert any("需供电 5,000 HE/tick" in t for t in tt)
+
+        plain = win.model.place(2, 3, ComponentType.RBMK_CONTROL)
+        win.on_select((2, 3))
+        root.update()
+        texts = panel_texts()
+        assert "供电需求（移动时）" not in texts
+        tt = [t for t, _ in win.grid_editor.tooltip_lines(plain, (2, 3))]
+        assert not any("需供电" in t for t in tt)
+
+        # 自动 ReaSim 棒同样标注（且显示「当前插入度」）
+        auto = win.model.place(2, 4, ComponentType.RBMK_CONTROL_REASIM_AUTO)
+        win.on_select((2, 4))
+        root.update()
+        texts = panel_texts()
+        assert "供电需求（移动时）" in texts
+        assert "当前插入度" in texts
+    finally:
+        root.destroy()

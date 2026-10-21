@@ -43,6 +43,27 @@
 - 冷却能力上限 = 25 根柱 × 200 = **5000 热量/tick**，是 RBMK 里最强的热汇。
 - 软件按“管道持续供液与排液”处理，因此每 tick 固定消耗 50 mB；属性面板显示「每刻消耗冷四氟甲烷」与「作用柱数（5×5）」。
 
+## 2.0 ReaSim 控制棒与普通控制棒的区别
+
+- 方块构造完全相同：`rbmk_control` 与 `rbmk_control_reasim` 都是 `new RBMKControl(false)`，
+  共用 `TileEntityRBMKControlManual`；自动版都是 `new RBMKControlAuto()`。唯一差异是贴图与显示名。
+- 真正区别在 `TileEntityRBMKControl.isPowered()`：只有 ReaSim 两个方块返回 `true`。
+
+```java
+public boolean isPowered() {
+    return this.func_145838_q() == ModBlocks.rbmk_control_reasim
+        || this.func_145838_q() == ModBlocks.rbmk_control_reasim_auto;
+}
+```
+
+- 因此 ReaSim 控制棒是**电动执行机构**：从下方接入电源，`maxPower = 50,000 HE`；
+  移动时每 tick 扣 `consumption = 5,000 HE`，缓冲不足（`power < 5000`）时 `hasPower = false`，棒体停在原位。
+- 普通控制棒不接电，移动免费。两者中子吸收、熔毁、控制台显示、移动速度（`0.00277 × controlSpeed`）完全一致。
+- 慢化控制棒（`rbmk_control_mod`）是另一个维度：`new RBMKControl(true)` → `isModerated()` 为真，
+  参与中子慢化，熔毁时掉落石墨碎片。
+- 模拟器不设电网，按方案 B 处理：属性面板与悬停提示标注「供电需求 5,000 HE/tick、缓冲 50,000 HE」，
+  计算上 ReaSim 控制棒与普通控制棒等价。
+
 ## 2.1 自动控制棒（TileEntityRBMKControlAuto）
 
 - 字段：`function`（LINEAR / QUAD_UP / QUAD_DOWN）、`heatLower`、`heatUpper`、`levelLower`、`levelUpper`（插入度百分比 0..100）。
