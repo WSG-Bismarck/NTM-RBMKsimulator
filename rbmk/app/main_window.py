@@ -501,10 +501,11 @@ class MainWindow:
             self._prop_row("芯温", "core")
             self._prop_row("壳温", "hull")
         self._prop_row("被动冷却", "cooling")
-        if beh == Behavior.FUEL:
+        if beh in (Behavior.FUEL, Behavior.OUTGASSER):
             self._prop_row("接收通量", "flux")
             self._prop_row("快中子计数", "fast")
             self._prop_row("慢中子计数", "slow")
+        if beh == Behavior.FUEL:
             self._prop_row("快中子占比", "ratio")
             self._prop_row("本柱输出通量", "outflux")
             self._prop_row("氙毒", "xenon")

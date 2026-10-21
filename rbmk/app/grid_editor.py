@@ -128,6 +128,11 @@ class GridEditor(tk.Frame):
                 lines.append((f"控制组 {group}   插入深度 {ins:.0f}%", C_DEFAULT))
             if cell.comp in REASIM_CONTROL_COMPONENTS:
                 lines.append(("需供电 5,000 HE/tick（缓冲 50,000 HE）", C_POWER))
+        elif beh == Behavior.OUTGASSER:
+            fq = cell.flux_q
+            lines.append((f"接收通量 {fq:.2f}", C_DEFAULT))
+            lines.append((f"快中子计数 {fq * cell.flux_ratio:.2f}", C_DEFAULT))
+            lines.append((f"慢中子计数 {fq * (1.0 - cell.flux_ratio):.2f}", C_DEFAULT))
         elif beh == Behavior.BOILER:
             stype = STEAM_TYPES.get(cell.steam_type)
             lines.append((f"蒸汽类型 {stype.name_cn if stype else cell.steam_type}", C_DEFAULT))

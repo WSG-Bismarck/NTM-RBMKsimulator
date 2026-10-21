@@ -257,7 +257,14 @@ class SimulationEngine:
                 cell.flux_ratio = fast / cell.flux_q if cell.flux_q > 0 else 0.0
                 return
 
-            # OTHER（结构柱/存储/冷却器/加热器/辐照通道）：中子直接穿过
+            if b == Behavior.OUTGASSER:
+                # 辐照通道实现 IRBMKFluxReceiver：接收并记录通量，中子继续穿过
+                fast = cell.flux_q * cell.flux_ratio + flux * ratio
+                cell.flux_q += flux
+                cell.flux_ratio = fast / cell.flux_q if cell.flux_q > 0 else 0.0
+                continue
+
+            # OTHER（结构柱/存储/冷却器/加热器）：中子直接穿过
             continue
 
     def _cast(self, r: int, c: int, dr: int, dc: int, flux: float, ratio: float, origin) -> None:

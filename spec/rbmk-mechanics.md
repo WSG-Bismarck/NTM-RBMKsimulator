@@ -311,7 +311,7 @@ public boolean isPowered() {
 | 石墨慢化剂 | 快中子 → 慢中子 |
 | 硼中子吸收器 | 吸收中子并自身发热 |
 | 碳化钨中子反射器 | 把中子反射回源燃料棒 |
-| 辐照通道 | 接收中子（用于辐照产物） |
+| 辐照通道 | `IRBMKFluxReceiver.receiveFlux`：接收并记录通量（快/慢分开，用于辐照产物），中子继续穿过 |
 | 冷却器 | 参与被动冷却（模型层） |
 | 流体加热器 | 热源/工质加热（模型层） |
 | 结构柱 / 存储棒 | 无中子作用，仅传热 |
@@ -366,3 +366,18 @@ public boolean isPowered() {
   - 所需台数 = `ceil(该阶段 HE/tick ÷ 单台上限)`；
   - `state.electricity = Σ(各阶段 mB/tick × he_per_mb × 该阶段汽轮机系数)`，切换后即时生效；
   - 选择写入存档 `turbines` 字段（缺省为工业汽轮机）。
+
+### 辐照通道的接收通量
+
+模组 `TileEntityRBMKOutgasser implements IRBMKFluxReceiver`：
+
+```java
+public void receiveFlux(NeutronStream stream) {
+    double efficiency = Math.min(1.0 - stream.fluxRatio * 0.8, 1.0);
+    this.progress += stream.fluxQuantity * efficiency * RBMKDials.getOutgasserMod(world);
+}
+```
+
+- 中子穿过辐照通道后继续前进（不像燃料/反射体那样终止流）。
+- 模拟器在 `_cast_positions` 里对 `Behavior.OUTGASSER` 累计 `flux_q` 与 `flux_ratio`（与燃料同样按数量加权合并），
+  然后 `continue` 让中子继续；属性面板与悬停提示显示「接收通量 / 快中子计数 / 慢中子计数」。

@@ -1067,3 +1067,17 @@ def test_leviathan_turbine_outputs_85_percent_of_industrial():
 
     # 未配置的阶段仍按工业汽轮机
     assert m.turbine_of("HOTSTEAM") == "INDUSTRIAL"
+
+
+def test_outgasser_receives_flux_and_lets_neurons_pass():
+    """辐照通道实现 IRBMKFluxReceiver：记录接收通量，且中子继续穿过。"""
+    m = ReactorModel(5, 5)
+    src = m.place(2, 1, ComponentType.RBMK_ROD, fuel="rbmk_fuel_lea")     # 自燃源
+    out = m.place(2, 2, ComponentType.RBMK_OUTGASSER)
+    behind = m.place(2, 3, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
+    e = SimulationEngine(m)
+    for _ in range(80):
+        e.advance(0.05)
+    assert out.flux_q > 0, "辐照通道应记录接收通量"
+    assert 0.0 <= out.flux_ratio <= 1.0
+    assert behind.flux_q > 0, "中子应穿过辐照通道继续前进"

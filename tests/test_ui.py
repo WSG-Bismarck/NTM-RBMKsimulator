@@ -257,19 +257,28 @@ def test_prop_panel_hides_core_hull_for_non_fuel():
         root.destroy()
 
 
-def test_prop_panel_hides_neutron_rows_for_non_fuel():
-    """非燃料通道（含辐照通道）不显示通量/快慢中子计数/快中子占比。"""
+def test_prop_panel_neutron_rows_by_component():
+    """接收通量/快中子计数/慢中子计数：燃料通道与辐照通道显示，其余组件不显示。"""
     win, root = _fresh()
     try:
         for col, comp in ((1, ComponentType.RBMK_BOILER),
-                          (2, ComponentType.RBMK_OUTGASSER),
-                          (3, ComponentType.RBMK_MODERATOR)):
+                          (3, ComponentType.RBMK_MODERATOR),
+                          (5, ComponentType.RBMK_CONTROL)):
             win.model.place(2, col, comp)
             win.on_select((2, col))
             for key in ("flux", "fast", "slow", "ratio", "outflux"):
                 assert key not in win._prop_labels, (comp, key)
             assert "temp" in win._prop_labels
 
+        # 辐照通道：三项中子参数，但没有快中子占比/输出通量
+        win.model.place(2, 2, ComponentType.RBMK_OUTGASSER)
+        win.on_select((2, 2))
+        for key in ("flux", "fast", "slow"):
+            assert key in win._prop_labels
+        for key in ("ratio", "outflux"):
+            assert key not in win._prop_labels
+
+        # 燃料通道：五项齐全
         win.model.place(2, 4, ComponentType.RBMK_ROD, fuel="rbmk_fuel_heu235")
         win.on_select((2, 4))
         for key in ("flux", "fast", "slow", "ratio", "outflux"):
@@ -1207,5 +1216,30 @@ def test_steam_type_change_redraws_grid():
         dots = [r for r in column_overlays(cell, win.model) if r[4] == (255, 195, 195)]
         assert dots and dots[0][:4] == (4, 5, 2, 2)
         win.grid_editor.redraw = real_redraw
+    finally:
+        root.destroy()
+
+
+def test_outgasser_shows_neutron_flux_in_panel_and_tooltip():
+    """辐照通道：接收通量/快中子计数/慢中子计数同步显示到属性面板与悬停提示。"""
+    from rbmk.model.components import ComponentType
+
+    win, root = _fresh()
+    try:
+        cell = win.model.place(3, 3, ComponentType.RBMK_OUTGASSER)
+        cell.flux_q = 100.0
+        cell.flux_ratio = 0.25
+        cell.shown_temp = 300.0
+
+        win.on_select((3, 3))
+        root.update()
+        assert win._prop_labels["flux"].cget("text") == "100.00"
+        assert win._prop_labels["fast"].cget("text") == "25.00"
+        assert win._prop_labels["slow"].cget("text") == "75.00"
+
+        lines = [t for t, _ in win.grid_editor.tooltip_lines(cell, (3, 3))]
+        assert "接收通量 100.00" in lines
+        assert "快中子计数 25.00" in lines
+        assert "慢中子计数 75.00" in lines
     finally:
         root.destroy()
