@@ -12,6 +12,10 @@ from rbmk.app.chart_panel import ChartPanel
 from rbmk.app.grid_editor import GridEditor
 from rbmk.model import save_load
 from rbmk.model.components import (
+    TURBINE_KINDS,
+    TURBINE_NAMES_CN,
+    turbine_capacity_he,
+    turbines_needed,
     COMPONENT_INFO,
     CONTROL_GROUP_COLORS,
     CONTROL_GROUP_NAMES,
@@ -304,6 +308,8 @@ class MainWindow:
             self.render_panel()
         elif self.tab == "prop":
             self._refresh_prop_values()
+        elif self.tab == "overview":
+            self._refresh_turbine_values()
         self.root.after(100, self._tick)
 
     def _refresh_state(self):
@@ -575,6 +581,51 @@ class MainWindow:
         hom.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
                       highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
         hom.pack(fill="x")
+
+        # 汽轮机配置：按蒸汽降温阶段分别选择汽轮机，并给出所需台数
+        tk.Label(p, text="汽轮机配置（按蒸汽降温阶段）", bg=theme.SURFACE, fg=theme.INK,
+                 font=theme.FONT_BOLD, anchor="w").pack(fill="x", pady=(14, 2))
+        self._turbine_labels = {}
+        for key, stype in STEAM_TYPES.items():
+            row = tk.Frame(p, bg=theme.SURFACE)
+            row.pack(fill="x", pady=(4, 0))
+            tk.Label(row, text=stype.name_cn, bg=theme.SURFACE, fg=theme.MUTED,
+                     font=theme.FONT_SMALL, width=10, anchor="w").pack(side="left", padx=(0, 4))
+            var = tk.StringVar(value=TURBINE_NAMES_CN[self.model.turbine_of(key)])
+            om = tk.OptionMenu(row, var, *[TURBINE_NAMES_CN[k] for k in TURBINE_KINDS],
+                               command=lambda v, k=key: self._set_turbine(k, v))
+            om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
+                         highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
+            om.pack(side="left", fill="x", expand=True)
+            lab = tk.Label(p, text="—", bg=theme.SURFACE, fg=theme.INK,
+                           font=theme.FONT_SMALL, anchor="w")
+            lab.pack(fill="x", padx=(2, 0))
+            self._turbine_labels[key] = lab
+        self._refresh_turbine_values()
+
+    def _set_turbine(self, steam_key: str, name: str):
+        """切换某蒸汽阶段使用的汽轮机（影响瞬时发电量）。"""
+        for kind, cn in TURBINE_NAMES_CN.items():
+            if cn == name:
+                self.model.set_turbine(steam_key, kind)
+                break
+        self._refresh_turbine_values()
+        self._refresh_state()
+
+    def _refresh_turbine_values(self):
+        labels = getattr(self, "_turbine_labels", {})
+        if not labels:
+            return
+        st = self.engine.state
+        for key, lab in labels.items():
+            stype = STEAM_TYPES[key]
+            mb = st.steam_by_type.get(key, 0.0)
+            he = mb * stype.he_per_mb
+            kind = self.model.turbine_of(key)
+            cap = turbine_capacity_he(kind, stype.he_per_mb)
+            need = turbines_needed(kind, he, stype.he_per_mb)
+            lab.configure(text=(f"{mb:,.0f} mB/tick → {he:,.0f} HE/tick" + "\n"
+                                f"需要 {need} 台（单台上限 {cap:,.0f} HE/tick）"))
 
     def _render_control(self):
         p = self.panel

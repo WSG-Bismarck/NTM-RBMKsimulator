@@ -112,6 +112,7 @@ class ReactorModel:
     cols: int = 15
     grid: list[list[Optional[Cell]]] = field(default_factory=list)
 
+    turbines: dict[str, str] = field(default_factory=dict)   # 蒸汽类型 -> 汽轮机种类
     global_insertion: float = 100.0
     group_insertion: dict[str, Optional[float]] = field(default_factory=dict)
     coolant_flow: float = 50.0
@@ -172,6 +173,15 @@ class ReactorModel:
         return [(r, c, cell) for r, c, cell in self.iter_cells()
                 if behavior_of(cell.comp) == Behavior.CONTROL]
 
+    def turbine_of(self, steam_key: str) -> str:
+        """该蒸汽阶段使用的汽轮机种类（默认工业汽轮机）。"""
+        from rbmk.model.components import TURBINE_INDUSTRIAL
+
+        return self.turbines.get(steam_key, TURBINE_INDUSTRIAL)
+
+    def set_turbine(self, steam_key: str, kind: str) -> None:
+        self.turbines[steam_key] = kind
+
     def effective_insertion(self, cell: Cell) -> float:
         """单根 > 分组 > 全局。返回 0..100。"""
         if behavior_of(cell.comp) != Behavior.CONTROL:
@@ -194,6 +204,7 @@ class ReactorModel:
             "coolant_flow": self.coolant_flow,
             "control_mode": self.control_mode,
             "reasim_boilers": self.reasim_boilers,
+            "turbines": dict(self.turbines),
             "cells": [{"r": r, "c": c, **cell.to_dict()} for r, c, cell in self.iter_cells()],
         }
 
@@ -207,6 +218,7 @@ class ReactorModel:
             coolant_flow=float(d.get("coolant_flow", 50.0)),
             control_mode=d.get("control_mode", "global"),
             reasim_boilers=bool(d.get("reasim_boilers", False)),
+            turbines={str(k): str(v) for k, v in (d.get("turbines") or {}).items()},
         )
         for item in d.get("cells", []):
             cell = Cell.from_dict(item)

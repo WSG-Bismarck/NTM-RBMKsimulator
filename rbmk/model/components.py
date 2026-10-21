@@ -9,6 +9,8 @@
 """
 from __future__ import annotations
 
+import math
+
 from dataclasses import dataclass
 from enum import Enum
 
@@ -217,6 +219,43 @@ class SteamType:
 #   1 超热   =  18 + 10×(2 + 10×2)            =  238 HE
 #   1 热蒸汽 =   2 + 10×2                      =   22 HE
 #   1 蒸汽   = 200/100                         =    2 HE
+# ---------------- 汽轮机 ----------------
+# TileEntityMachineIndustrialTurbine：输入罐 750,000 mB，consumptionPercent() = 0.2，
+#   maxPower = ceil(容量×0.2 / amountReq) × heatEnergy × eff（按容量动态计算）
+# TileEntityMachineLargeTurbine（利维坦，machine_chungus）：输入罐 512,000 mB，
+#   cap = ceil((存量/amountReq)/5)（同样是存量的 20%），maxPower = 100,000,000，
+#   且每 tick 先 power *= 0.95 —— 实测稳态输出约为工业汽轮机的 85%
+TURBINE_INDUSTRIAL = "INDUSTRIAL"
+TURBINE_LEVIATHAN = "LEVIATHAN"
+TURBINE_KINDS = (TURBINE_INDUSTRIAL, TURBINE_LEVIATHAN)
+TURBINE_NAMES_CN = {TURBINE_INDUSTRIAL: "工业汽轮机", TURBINE_LEVIATHAN: "利维坦巨型汽轮机"}
+TURBINE_TANK = {TURBINE_INDUSTRIAL: 750_000.0, TURBINE_LEVIATHAN: 512_000.0}
+TURBINE_CONSUME_PERCENT = 0.2
+TURBINE_MAX_POWER = {TURBINE_INDUSTRIAL: None, TURBINE_LEVIATHAN: 100_000_000.0}
+TURBINE_FACTOR = {TURBINE_INDUSTRIAL: 1.0, TURBINE_LEVIATHAN: 0.85}
+
+
+def turbine_capacity_he(kind: str, he_per_mb: float) -> float:
+    """单台汽轮机在某蒸汽阶段的输出上限（HE/tick）。
+
+    吞吐 = 满罐 × 20%/tick；利维坦再受 maxPower = 1 亿 HE/tick 限制；
+    最后乘实测输出系数（工业 1.0 / 利维坦 0.85）。
+    """
+    kind = kind if kind in TURBINE_TANK else TURBINE_INDUSTRIAL
+    cap = TURBINE_TANK[kind] * TURBINE_CONSUME_PERCENT * he_per_mb
+    mp = TURBINE_MAX_POWER[kind]
+    if mp is not None:
+        cap = min(cap, mp)
+    return cap * TURBINE_FACTOR[kind]
+
+
+def turbines_needed(kind: str, he_per_tick: float, he_per_mb: float) -> int:
+    """该蒸汽阶段需要的汽轮机台数（向上取整）。"""
+    if he_per_tick <= 0:
+        return 0
+    return max(1, math.ceil(he_per_tick / turbine_capacity_he(kind, he_per_mb)))
+
+
 STEAM_TYPES: dict[str, SteamType] = {
     "STEAM": SteamType("STEAM", "蒸汽", 100.0, 1.0, 2.0),
     "HOTSTEAM": SteamType("HOTSTEAM", "热蒸汽", 300.0, 10.0, 22.0),

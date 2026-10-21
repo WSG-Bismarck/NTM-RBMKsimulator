@@ -10,9 +10,10 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from rbmk.model.components import (
+    TURBINE_FACTOR,
     HEAT_FLUIDS,
     MODERATED_COMPONENTS,
     REASIM_COMPONENTS,
@@ -121,6 +122,7 @@ class EngineState:
     avg_temperature: float = AMBIENT
     avg_flux: float = 0.0
     steam: float = 0.0
+    steam_by_type: dict = field(default_factory=dict)   # 蒸汽类型 -> 本 tick 产量（mB/tick）
     electricity: float = 0.0
     total_energy: float = 0.0
     fuel_remaining: float = 100.0
@@ -539,16 +541,24 @@ class SimulationEngine:
         # 蒸汽以 mB 计：100 mB 蒸汽 ≈ 旧模型 1 单位水，除以 100 保持发电量标定不变
         # 瞬时发电量（HE/tick）：每 tick 产出的各类蒸汽，按最优路径（逐级冷却到低压蒸汽）
         # 经汽轮机换算成 HE。汽轮机效率 eff_steam_turbine = 1.0。
-        he = 0.0
-        superhot = STEAM_TYPES["SUPERHOTSTEAM"]
+        # 按蒸汽类型汇总本 tick 产量，再逐阶段套用所选汽轮机（工业 100% / 利维坦 85%）
+        by_type: dict[str, float] = {}
         for _, _, cell in self.model.iter_cells():
-            if cell.steam_rate > 0.0:
-                # 模组里 ReaSim 的 reasimSteam 由出口以「超热蒸汽」（SUPERHOTSTEAM）导出：
-                # TileEntityRBMKOutlet.steam = new FluidTank(Fluids.SUPERHOTSTEAM, 32000)
-                normal = max(0.0, cell.steam_rate - cell.reasim_steam_rate)
-                st = STEAM_TYPES.get(cell.steam_type, STEAM_TYPES["STEAM"])
-                he += normal * st.he_per_mb
-                he += cell.reasim_steam_rate * superhot.he_per_mb
+            if cell.steam_rate <= 0.0:
+                continue
+            # 模组里 ReaSim 的 reasimSteam 由出口以「超热蒸汽」（SUPERHOTSTEAM）导出：
+            # TileEntityRBMKOutlet.steam = new FluidTank(Fluids.SUPERHOTSTEAM, 32000)
+            normal = max(0.0, cell.steam_rate - cell.reasim_steam_rate)
+            key = cell.steam_type if cell.steam_type in STEAM_TYPES else "STEAM"
+            if normal > 0.0:
+                by_type[key] = by_type.get(key, 0.0) + normal
+            if cell.reasim_steam_rate > 0.0:
+                by_type["SUPERHOTSTEAM"] = by_type.get("SUPERHOTSTEAM", 0.0) + cell.reasim_steam_rate
+        he = 0.0
+        for key, mb in by_type.items():
+            st = STEAM_TYPES[key]
+            he += mb * st.he_per_mb * TURBINE_FACTOR.get(self.model.turbine_of(key), 1.0)
+        s.steam_by_type = by_type
         s.electricity = he
         s.total_energy += he
 

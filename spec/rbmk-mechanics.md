@@ -323,3 +323,19 @@
 - **蒸汽条固定为空**：模型不设蒸汽缓冲（产汽直接外送），水条用 `cell.water / 10000`。
 - 顶部 6 个屏幕槽位、控制台方块联动功能不复刻（显示屏方块已从组件表移除）。
 
+## 汽轮机与发电量（总览可选）
+
+| | 工业汽轮机 `TileEntityMachineIndustrialTurbine` | 利维坦巨型汽轮机 `TileEntityMachineLargeTurbine`（`machine_chungus`） |
+|---|---|---|
+| 输入罐 | 750,000 mB | 512,000 mB |
+| 每 tick 消耗 | 当前存量的 20%（`consumptionPercent()=0.2`） | 当前存量的 1/5（`cap=ceil((fill/req)/5)`） |
+| 功率上限 | 动态 `ceil(容量×0.2/req)×heatEnergy×eff` | 常量 `maxPower = 100,000,000` |
+| 输出方式 | 飞轮（上限 5,000 万），输出 `max(spin,0.05)×maxPower` | 缓冲每 tick 先 `×0.95` 衰减再加产出 |
+| 单位产能 | `heatEnergy × eff`（2 / 22 / 238 / 2500 HE/mB） | 相同 |
+
+- 两台汽轮机的**单位产能一致**；利维坦因 0.95/tick 衰减，实测稳态输出约为工业汽轮机的 **85%**（该系数为玩家实测，非 jar 常量）。
+- 模拟器「总览」按 4 个蒸汽降温阶段（蒸汽 / 热蒸汽 / 超热蒸汽 / 超浓密蒸汽）分别选择汽轮机：
+  - 单台上限 = `满罐 × 20%/tick × he_per_mb`，利维坦再与 `maxPower = 1 亿` 取小，最后乘系数（工业 1.0 / 利维坦 0.85）；
+  - 所需台数 = `ceil(该阶段 HE/tick ÷ 单台上限)`；
+  - `state.electricity = Σ(各阶段 mB/tick × he_per_mb × 该阶段汽轮机系数)`，切换后即时生效；
+  - 选择写入存档 `turbines` 字段（缺省为工业汽轮机）。

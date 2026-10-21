@@ -1044,3 +1044,26 @@ def test_reasim_boiler_splits_normal_and_superhot_steam():
     assert total_reasim > boil.reasim_steam_rate
     expected = total_normal * 2.0 + total_reasim * 238.0
     assert abs(e.state.electricity - expected) < 1e-6
+
+
+def test_leviathan_turbine_outputs_85_percent_of_industrial():
+    """利维坦按 85% 效率计入瞬时发电量，且按蒸汽阶段分别生效。"""
+    m = ReactorModel(3, 3)
+    b = m.place(1, 1, ComponentType.RBMK_BOILER)
+    b.steam_type = "STEAM"
+    e = SimulationEngine(m)
+    b.temp = 500.0
+    e._begin_tick()
+    e._heat_tick()
+    e._end_tick()
+    e._update_state()
+    assert e.state.steam_by_type.get("STEAM", 0.0) > 0
+    industrial = e.state.electricity
+    assert industrial > 0
+
+    m.set_turbine("STEAM", "LEVIATHAN")
+    e._update_state()
+    assert abs(e.state.electricity - industrial * 0.85) < 1e-6
+
+    # 未配置的阶段仍按工业汽轮机
+    assert m.turbine_of("HOTSTEAM") == "INDUSTRIAL"

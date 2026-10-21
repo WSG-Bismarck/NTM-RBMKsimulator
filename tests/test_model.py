@@ -133,3 +133,37 @@ def test_control_rod_defaults_to_vacant_group():
     assert rod.group is None
     m.group_insertion["RED"] = 0.0
     assert m.effective_insertion(rod) == m.global_insertion
+
+
+def test_turbine_capacity_and_count():
+    """单台汽轮机输出上限与所需台数：工业按 750k 罐 20%，利维坦 512k 罐且受 1 亿上限与 85%。"""
+    from rbmk.model.components import (
+        STEAM_TYPES, turbine_capacity_he, turbines_needed,
+        TURBINE_INDUSTRIAL, TURBINE_LEVIATHAN,
+    )
+
+    steam = STEAM_TYPES["STEAM"]           # 2 HE/mB
+    assert abs(turbine_capacity_he(TURBINE_INDUSTRIAL, steam.he_per_mb) - 750_000 * 0.2 * 2) < 1e-6
+    assert abs(turbine_capacity_he(TURBINE_LEVIATHAN, steam.he_per_mb) - 512_000 * 0.2 * 2 * 0.85) < 1e-6
+
+    ultra = STEAM_TYPES["ULTRAHOTSTEAM"]   # 2500 HE/mB
+    # 利维坦受 maxPower = 100,000,000 限制，再乘 0.85
+    assert abs(turbine_capacity_he(TURBINE_LEVIATHAN, ultra.he_per_mb) - 85_000_000) < 1e-6
+    # 工业不设常量上限：750k × 20% × 2500
+    assert abs(turbine_capacity_he(TURBINE_INDUSTRIAL, ultra.he_per_mb) - 375_000_000) < 1e-6
+
+    assert turbines_needed(TURBINE_INDUSTRIAL, 0.0, steam.he_per_mb) == 0
+    assert turbines_needed(TURBINE_INDUSTRIAL, 300_000, steam.he_per_mb) == 1
+    assert turbines_needed(TURBINE_INDUSTRIAL, 300_001, steam.he_per_mb) == 2
+    assert turbines_needed(TURBINE_LEVIATHAN, 300_000, steam.he_per_mb) == 2
+
+
+def test_turbine_choice_persists():
+    """汽轮机选择写入存档并可还原。"""
+    m = ReactorModel(4, 4)
+    m.set_turbine("SUPERHOTSTEAM", "LEVIATHAN")
+    d = m.to_dict()
+    assert d["turbines"]["SUPERHOTSTEAM"] == "LEVIATHAN"
+    m2 = ReactorModel.from_dict(d)
+    assert m2.turbine_of("SUPERHOTSTEAM") == "LEVIATHAN"
+    assert m2.turbine_of("STEAM") == "INDUSTRIAL"

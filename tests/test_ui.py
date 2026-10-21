@@ -886,3 +886,29 @@ def test_fuel_menu_marks_self_igniting_fuels():
         assert cell.fuel == ign.key
     finally:
         root.destroy()
+
+
+def test_overview_has_turbine_selectors():
+    """总览里有每个蒸汽阶段的汽轮机选择与所需台数，切换后发电量变化。"""
+    from rbmk.app.main_window import TURBINE_NAMES_CN
+    from rbmk.model.components import ComponentType
+
+    win, root = _fresh()
+    try:
+        b = win.model.place(3, 3, ComponentType.RBMK_BOILER)
+        b.steam_type = "STEAM"
+        win.engine.state.steam_by_type = {"STEAM": 1000.0}
+        win.set_tab("overview")
+        root.update()
+        assert win._turbine_labels, "总览应包含汽轮机配置区"
+        assert set(win._turbine_labels) == {"STEAM", "HOTSTEAM", "SUPERHOTSTEAM", "ULTRAHOTSTEAM"}
+
+        # 需求台数：1000 mB/tick × 2 HE = 2000 HE/tick；工业单台 300,000 → 1 台
+        text = win._turbine_labels["STEAM"].cget("text")
+        assert "需要 1 台" in text
+
+        win._set_turbine("STEAM", TURBINE_NAMES_CN["LEVIATHAN"])
+        assert win.model.turbine_of("STEAM") == "LEVIATHAN"
+        assert "174,080" in win._turbine_labels["STEAM"].cget("text")
+    finally:
+        root.destroy()
