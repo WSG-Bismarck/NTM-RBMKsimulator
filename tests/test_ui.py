@@ -937,8 +937,10 @@ def test_hover_tip_shows_component_info():
         # 颜色：柱温黄、燃耗绿、氙毒紫
         colors = {t: c for t, c in lines}
         assert colors["柱温 812.3 °C"] == "#ffff55"
+        assert colors["表面温度 500.0 °C / 3800.0 °C"] == "#ff8888"
         assert colors["燃耗 0.00%"] == "#55ff55"
         assert colors["氙毒 12.0%"] == "#ff55ff"
+        assert "中子通量" not in text
 
         boiler = win.model.place(4, 4, ComponentType.RBMK_BOILER)
         boiler.steam_type = "SUPERHOTSTEAM"
@@ -972,5 +974,34 @@ def test_hover_tip_shows_component_info():
         ge._hide_tip()
         root.update()
         assert not ge.tip.win.winfo_ismapped()
+    finally:
+        root.destroy()
+
+
+def test_tooltip_marks_moderating_components():
+    """可慢化中子的组件（慢化剂方块 / 慢化燃料通道 / 慢化控制棒）提示框末行是黄色「慢化剂」。"""
+    from rbmk.model.components import ComponentType
+
+    win, root = _fresh()
+    try:
+        ge = win.grid_editor
+        moderated = [
+            (ComponentType.RBMK_MODERATOR, (1, 1)),
+            (ComponentType.RBMK_ROD_MOD, (1, 2)),
+            (ComponentType.RBMK_ROD_REASIM_MOD, (1, 3)),
+            (ComponentType.RBMK_CONTROL_MOD, (1, 4)),
+        ]
+        for comp, rc in moderated:
+            cell = win.model.place(*rc, comp)
+            lines = ge.tooltip_lines(cell, rc)
+            assert lines[-1] == ("慢化剂", "#ffff55"), comp
+
+        for comp, rc in [(ComponentType.RBMK_ROD, (2, 1)),
+                         (ComponentType.RBMK_CONTROL, (2, 2)),
+                         (ComponentType.RBMK_REFLECTOR, (2, 3)),
+                         (ComponentType.RBMK_BLANK, (2, 4))]:
+            cell = win.model.place(*rc, comp)
+            lines = ge.tooltip_lines(cell, rc)
+            assert all(t != "慢化剂" for t, _ in lines), comp
     finally:
         root.destroy()

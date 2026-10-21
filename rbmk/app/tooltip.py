@@ -9,6 +9,8 @@ C_DEFAULT = "#ffffff"
 C_TEMP = "#ffff55"   # 柱温（黄）
 C_BURN = "#55ff55"   # 燃耗（绿）
 C_XENON = "#ff55ff"  # 氙毒（紫）
+C_SURFACE = "#ff8888"  # 表面温度（浅红）
+C_MODERATOR = "#ffff55"  # 慢化剂（黄）
 C_NAME = "#ffffff"
 
 

@@ -4,9 +4,18 @@ import tkinter as tk
 from rbmk.app import theme
 from rbmk.app.icons import get_icon
 from rbmk.app.overlays import column_overlays
-from rbmk.app.tooltip import C_BURN, C_DEFAULT, C_TEMP, C_XENON, HoverTip
+from rbmk.app.tooltip import (
+    C_BURN,
+    C_DEFAULT,
+    C_MODERATOR,
+    C_SURFACE,
+    C_TEMP,
+    C_XENON,
+    HoverTip,
+)
 from rbmk.model.components import (
     COMPONENT_INFO,
+    MODERATED_COMPONENTS,
     COMPONENT_SHORT,
     Behavior,
     ComponentType,
@@ -104,11 +113,9 @@ class GridEditor(tk.Frame):
                 lines.append(("无燃料棒", C_DEFAULT))
             else:
                 lines.append((f"燃料 {ft.name_cn}", C_DEFAULT))
-                lines.append((f"表面温度 {cell.hull_heat:.1f} °C / {cell.core_heat:.1f} °C", C_DEFAULT))
+                lines.append((f"表面温度 {cell.hull_heat:.1f} °C / {cell.core_heat:.1f} °C", C_SURFACE))
                 lines.append((f"燃耗 {cell.burnup * 100:.2f}%", C_BURN))
                 lines.append((f"氙毒 {cell.xenon:.1f}%", C_XENON))
-                if cell.flux > 0:
-                    lines.append((f"中子通量 {cell.flux:,.0f}", C_DEFAULT))
         elif beh == Behavior.CONTROL:
             group = cell.group.value if cell.group is not None else "空置"
             if cell.comp in (ComponentType.RBMK_CONTROL_AUTO, ComponentType.RBMK_CONTROL_REASIM_AUTO):
@@ -135,6 +142,10 @@ class GridEditor(tk.Frame):
             ft = cell.fuel_type
             if ft is not None:
                 lines.append((f"燃料 {ft.name_cn}", C_DEFAULT))
+
+        # 可慢化中子的组件（慢化剂方块 / 慢化燃料通道 / 慢化控制棒）末行标注慢化剂
+        if beh == Behavior.MODERATOR or cell.comp in MODERATED_COMPONENTS:
+            lines.append(("慢化剂", C_MODERATOR))
         return lines
 
     def refresh_tip(self):
