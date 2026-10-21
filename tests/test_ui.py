@@ -1039,3 +1039,38 @@ def test_custom_speed_entry():
         assert win.speed_var.get() == "100"
     finally:
         root.destroy()
+
+
+def test_guide_button_opens_quick_start():
+    """工具栏「使用说明」弹出快速上手内容，重复点击复用同一窗口。"""
+    from rbmk.app.guide import guide_path, guide_text
+
+    assert guide_path().endswith("快速上手.md")
+    assert "界面操作" in guide_text()
+
+    win, root = _fresh()
+    try:
+        texts = []
+        for w in win.root.winfo_children():
+            if w.winfo_class() != "Frame":
+                continue
+            for c in w.winfo_children():
+                if c.winfo_class() == "Button":
+                    texts.append(c.cget("text"))
+        assert "使用说明" in texts
+
+        win.show_guide()
+        root.update()
+        g = win._guide_win
+        assert g.winfo_exists()
+        body = g.text.get("1.0", "end")
+        for section in ("界面操作", "运行与调速", "保存与分享"):
+            assert section in body
+
+        win.show_guide()
+        root.update()
+        assert win._guide_win is g
+        g.destroy()
+        win._guide_win = None
+    finally:
+        root.destroy()

@@ -128,6 +128,7 @@ class MainWindow:
         for text, cmd in [("新建", self.new_model), ("打开", self.open_file),
                           ("保存", self.save_file), ("导出分享", self.export_file)]:
             _btn(bar, text, cmd).pack(side="left", padx=(8 if text == "新建" else 2, 0), pady=7)
+        _btn(bar, "使用说明", self.show_guide).pack(side="left", padx=(4, 0), pady=7)
         tk.Frame(bar, bg=theme.BORDER, width=1).pack(side="left", fill="y", padx=8)
         self.run_btn = _btn(bar, "▶ 运行", self.toggle_run, "primary")
         self.run_btn.pack(side="left", pady=7)
@@ -285,6 +286,18 @@ class MainWindow:
         for k, b in self.speed_btns.items():
             b.configure(bg=theme.BUTTON_PRIMARY if k == s else theme.BUTTON_BG,
                         fg=theme.BUTTON_FG, relief="sunken" if k == s else "raised")
+
+    def show_guide(self):
+        """弹出《快速上手》使用说明。"""
+        from rbmk.app.guide import GuideWindow
+
+        win = getattr(self, "_guide_win", None)
+        if win is not None and win.winfo_exists():
+            win.deiconify()
+            win.lift()
+            win.focus_force()
+            return
+        self._guide_win = GuideWindow(self.root)
 
     def apply_custom_speed(self):
         """应用输入框里的自定义模拟速度（正整数，上限 1,000,000x）。"""
