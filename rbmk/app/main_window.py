@@ -304,6 +304,7 @@ class MainWindow:
             self.chart.push(self.engine.state)
             self.grid_editor.redraw()
         self._refresh_state()
+        self.grid_editor.refresh_tip()
         if self.tab == "risk":
             self.render_panel()
         elif self.tab == "prop":

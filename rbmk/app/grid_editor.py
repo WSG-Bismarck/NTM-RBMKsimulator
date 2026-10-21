@@ -4,6 +4,7 @@ import tkinter as tk
 from rbmk.app import theme
 from rbmk.app.icons import get_icon
 from rbmk.app.overlays import column_overlays
+from rbmk.app.tooltip import C_BURN, C_DEFAULT, C_TEMP, C_XENON, HoverTip
 from rbmk.model.components import (
     COMPONENT_INFO,
     COMPONENT_SHORT,
@@ -11,50 +12,6 @@ from rbmk.model.components import (
     ComponentType,
     behavior_of,
 )
-
-
-class HoverTip:
-    """光标跟随提示框（仿原版物品提示：深色底 + 立体边框）。"""
-
-    BG = "#100010"
-    BORDER = "#3a0f4a"
-
-    def __init__(self, master):
-        self.win = tk.Toplevel(master)
-        self.win.withdraw()
-        self.win.overrideredirect(True)
-        try:
-            self.win.attributes("-topmost", True)
-        except tk.TclError:
-            pass
-        self.frame = tk.Frame(self.win, bg=self.BORDER, bd=0)
-        self.frame.pack()
-        self.label = tk.Label(self.frame, text="", bg=self.BG, fg="#ffffff",
-                              font=(theme.FAMILY, 9), justify="left", anchor="w")
-        self.label.pack(padx=6, pady=4)
-        self._text = None
-
-    def show(self, text: str, x_root: int, y_root: int):
-        if text != self._text:
-            self._text = text
-            self.label.configure(text=text)
-        self.win.deiconify()
-        self.win.update_idletasks()
-        w, h = self.win.winfo_width(), self.win.winfo_height()
-        sw, sh = self.win.winfo_screenwidth(), self.win.winfo_screenheight()
-        x = min(max(0, x_root + 16), max(0, sw - w - 4))
-        y = min(max(0, y_root + 14), max(0, sh - h - 4))
-        self.win.geometry(f"+{x}+{y}")
-
-    def hide(self):
-        self._text = None
-        self.win.withdraw()
-
-    def destroy(self):
-        try:
-            self.win.destroy()
-        except tk.TclError:
-            pass
 
 
 class GridEditor(tk.Frame):
@@ -76,6 +33,7 @@ class GridEditor(tk.Frame):
         self.canvas.bind("<Button-3>", self._on_right)
         self.tip = HoverTip(self)
         self._tip_rc = None
+        self._tip_pos = (0, 0)
         self.canvas.bind("<Motion>", self._on_motion)
         self.canvas.bind("<Leave>", lambda e: self._hide_tip())
         self.bind("<Destroy>", self._on_destroy)
@@ -127,51 +85,67 @@ class GridEditor(tk.Frame):
 
     def _hide_tip(self):
         self._tip_rc = None
+        self._tip_pos = (0, 0)
         if getattr(self, "tip", None) is not None:
             self.tip.hide()
 
-    def tooltip_text(self, cell, rc):
-        """组件悬停信息（纯函数，便于测试）。"""
+    def tooltip_lines(self, cell, rc):
+        """组件悬停信息：[(文本, 颜色), ...]，纯函数便于测试。"""
+        from rbmk.model.components import HEAT_FLUIDS, STEAM_TYPES
+
         name = COMPONENT_INFO[cell.comp][0]
         beh = behavior_of(cell.comp)
         temp = cell.shown_temp if cell.shown_temp else cell.temp
-        lines = [f"{name}    {rc[0] + 1}行 {rc[1] + 1}列", f"柱温 {temp:.1f} °C"]
+        lines = [(f"{name}    {rc[0] + 1}行 {rc[1] + 1}列", C_DEFAULT),
+                 (f"柱温 {temp:.1f} °C", C_TEMP)]
         if beh == Behavior.FUEL:
             ft = cell.fuel_type
             if ft is None:
-                lines.append("无燃料棒")
+                lines.append(("无燃料棒", C_DEFAULT))
             else:
-                lines.append(f"燃料 {ft.name_cn}")
-                lines.append(f"芯温 {cell.core_heat:.1f} °C   壳温 {cell.hull_heat:.1f} °C")
-                lines.append(f"燃耗 {cell.burnup * 100:.2f}%   氙毒 {cell.xenon:.1f}%")
+                lines.append((f"燃料 {ft.name_cn}", C_DEFAULT))
+                lines.append((f"表面温度 {cell.hull_heat:.1f} °C / {cell.core_heat:.1f} °C", C_DEFAULT))
+                lines.append((f"燃耗 {cell.burnup * 100:.2f}%", C_BURN))
+                lines.append((f"氙毒 {cell.xenon:.1f}%", C_XENON))
                 if cell.flux > 0:
-                    lines.append(f"中子通量 {cell.flux:,.0f}")
+                    lines.append((f"中子通量 {cell.flux:,.0f}", C_DEFAULT))
         elif beh == Behavior.CONTROL:
             group = cell.group.value if cell.group is not None else "空置"
-            if cell.comp == ComponentType.RBMK_CONTROL_AUTO or cell.comp == ComponentType.RBMK_CONTROL_REASIM_AUTO:
-                lines.append(f"控制组 {group}   透过率 {cell.level:.2f}")
-                lines.append(f"目标透过率 {cell.target_level:.2f}")
+            if cell.comp in (ComponentType.RBMK_CONTROL_AUTO, ComponentType.RBMK_CONTROL_REASIM_AUTO):
+                lines.append((f"控制组 {group}   透过率 {cell.level:.2f}", C_DEFAULT))
+                lines.append((f"目标透过率 {cell.target_level:.2f}", C_DEFAULT))
             else:
                 ins = self.app.model.effective_insertion(cell)
-                lines.append(f"控制组 {group}   插入深度 {ins:.0f}%")
+                lines.append((f"控制组 {group}   插入深度 {ins:.0f}%", C_DEFAULT))
         elif beh == Behavior.BOILER:
-            st = cell.steam_type
-            lines.append(f"蒸汽类型 {st}")
-            lines.append(f"每刻产汽 {cell.steam_rate:,.0f} mB/tick")
+            stype = STEAM_TYPES.get(cell.steam_type)
+            lines.append((f"蒸汽类型 {stype.name_cn if stype else cell.steam_type}", C_DEFAULT))
+            lines.append((f"每刻产汽 {cell.steam_rate:,.0f} mB/tick", C_DEFAULT))
             if getattr(cell, "reasim_steam_rate", 0):
-                lines.append(f"其中 ReaSim {cell.reasim_steam_rate:,.0f} mB/tick")
+                lines.append((f"其中 ReaSim {cell.reasim_steam_rate:,.0f} mB/tick", C_DEFAULT))
         elif beh == Behavior.COOLER:
-            lines.append(f"每刻消耗 {cell.cooler_rate:,.0f} mB/tick")
-            lines.append(f"作用柱数 {cell.cooler_cells}")
+            lines.append((f"每刻消耗 {cell.cooler_rate:,.0f} mB/tick", C_DEFAULT))
+            lines.append((f"作用柱数 {cell.cooler_cells}", C_DEFAULT))
         elif beh == Behavior.HEATER:
-            lines.append(f"流体 {cell.heater_fluid}")
-            lines.append(f"产量 {cell.heater_rate:,.0f} mB/tick")
-            lines.append(f"热量 {cell.heater_heat:,.0f} TU/tick")
+            fluid = HEAT_FLUIDS.get(cell.heater_fluid)
+            lines.append((f"流体 {fluid.name_cn if fluid else cell.heater_fluid}", C_DEFAULT))
+            lines.append((f"产量 {cell.heater_rate:,.0f} mB/tick", C_DEFAULT))
+            lines.append((f"热量 {cell.heater_heat:,.0f} TU/tick", C_DEFAULT))
         elif cell.fuel is not None:
             ft = cell.fuel_type
             if ft is not None:
-                lines.append(f"燃料 {ft.name_cn}")
-        return chr(10).join(lines)
+                lines.append((f"燃料 {ft.name_cn}", C_DEFAULT))
+        return lines
+
+    def refresh_tip(self):
+        """每 100ms 由主循环调用：鼠标仍停在柱子上时刷新数值。"""
+        if self._tip_rc is None:
+            return
+        cell = self.app.model.cell_at(*self._tip_rc)
+        if cell is None:
+            self._hide_tip()
+            return
+        self.tip.show(self.tooltip_lines(cell, self._tip_rc), *self._tip_pos)
 
     def _on_motion(self, e):
         rc = self._cell_from_event(e.x, e.y)
@@ -182,9 +156,9 @@ class GridEditor(tk.Frame):
         if cell is None:
             self._hide_tip()
             return
-        if rc != self._tip_rc:
-            self._tip_rc = rc
-        self.tip.show(self.tooltip_text(cell, rc), e.x_root, e.y_root)
+        self._tip_rc = rc
+        self._tip_pos = (e.x_root, e.y_root)
+        self.tip.show(self.tooltip_lines(cell, rc), e.x_root, e.y_root)
 
     def _paint(self, rc):
         if rc is None:

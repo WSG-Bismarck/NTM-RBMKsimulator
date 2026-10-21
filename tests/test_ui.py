@@ -927,19 +927,26 @@ def test_hover_tip_shows_component_info():
         rod.hull_heat = 500.0
         rod.core_heat = 3800.0
         rod.xenon = 12.0
-        text = ge.tooltip_text(rod, (2, 3))
+        lines = ge.tooltip_lines(rod, (2, 3))
+        text = chr(10).join(t for t, _ in lines)
         assert "RBMK反应堆燃料通道" in text
         assert "柱温 812.3" in text
         assert "闪光铅" in text
-        assert "壳温 500.0" in text
+        assert "表面温度 500.0 °C / 3800.0 °C" in text
         assert "3行 4列" in text
+        # 颜色：柱温黄、燃耗绿、氙毒紫
+        colors = {t: c for t, c in lines}
+        assert colors["柱温 812.3 °C"] == "#ffff55"
+        assert colors["燃耗 0.00%"] == "#55ff55"
+        assert colors["氙毒 12.0%"] == "#ff55ff"
 
         boiler = win.model.place(4, 4, ComponentType.RBMK_BOILER)
         boiler.steam_type = "SUPERHOTSTEAM"
         boiler.steam_rate = 12345.0
         boiler.shown_temp = 480.0
-        btext = ge.tooltip_text(boiler, (4, 4))
+        btext = chr(10).join(t for t, _ in ge.tooltip_lines(boiler, (4, 4)))
         assert "RBMK反应堆蒸汽管道" in btext
+        assert "蒸汽类型 超热蒸汽" in btext
         assert "每刻产汽 12,345 mB/tick" in btext
 
         # 模拟鼠标移到燃料柱上
@@ -953,7 +960,13 @@ def test_hover_tip_shows_component_info():
         ge._on_motion(_E())
         root.update()
         assert ge.tip.win.winfo_ismapped()
-        assert "柱温 812.3" in ge.tip.label.cget("text")
+        assert "柱温 812.3" in ge.tip.text()
+
+        # 主循环每 100ms 刷新：数值变化后提示框内容跟着更新
+        rod.shown_temp = 900.5
+        ge.refresh_tip()
+        root.update()
+        assert "柱温 900.5" in ge.tip.text()
 
         # 离开网格后隐藏
         ge._hide_tip()
