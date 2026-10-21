@@ -851,3 +851,38 @@ def test_control_rod_has_no_group_color_frame():
         assert float(cv.itemcget(target, "width")) == 1.0
     finally:
         root.destroy()
+
+
+def test_fuel_menu_marks_self_igniting_fuels():
+    """燃料类型下拉框：自燃燃料（selfRate > 0）名字后带（可自燃），且选择后能正确落到 key。"""
+    from rbmk.app.main_window import FUELS, fuel_label, SELF_IGNITE_SUFFIX
+    from rbmk.model.components import ComponentType
+
+    ign = next(f for f in FUELS.values() if f.is_self_igniting)
+    normal = next(f for f in FUELS.values() if not f.is_self_igniting)
+    assert fuel_label(ign).endswith(SELF_IGNITE_SUFFIX)
+    assert not fuel_label(normal).endswith(SELF_IGNITE_SUFFIX)
+
+    win, root = _fresh()
+    try:
+        win.model.place(2, 2, ComponentType.RBMK_ROD)
+        win.on_select((2, 2))
+        root.update()
+        labels = []
+        stack = [win.panel]
+        while stack:
+            w = stack.pop()
+            stack.extend(w.winfo_children())
+            if w.winfo_class() == "Menubutton":
+                menu = w["menu"]
+                for i in range(menu.index("end") + 1):
+                    labels.append(menu.entrycget(i, "label"))
+        assert labels, "属性面板应包含燃料类型下拉框"
+        assert any(lbl.endswith(SELF_IGNITE_SUFFIX) for lbl in labels)
+        assert fuel_label(ign) in labels
+
+        cell = win.model.cell_at(2, 2)
+        win._set_fuel(cell, fuel_label(ign))
+        assert cell.fuel == ign.key
+    finally:
+        root.destroy()

@@ -34,6 +34,14 @@ SPEEDS = [(0, "⏸"), (1, "1x"), (10, "10x"), (100, "100x"), (1000, "1000x")]
 TOOLS = [("select", "选择"), ("erase", "擦除")]
 
 
+SELF_IGNITE_SUFFIX = "（可自燃）"
+
+
+def fuel_label(ft) -> str:
+    """燃料类型显示名：自燃燃料（selfRate > 0）在名字后加（可自燃）。"""
+    return f"{ft.name_cn}{SELF_IGNITE_SUFFIX}" if getattr(ft, "is_self_igniting", False) else ft.name_cn
+
+
 def _btn(parent, text, cmd, kind="normal"):
     """原版风格按钮：灰石底、2px 凸起边框、白字，悬停变亮并转黄字。"""
     if kind == "primary":
@@ -362,8 +370,8 @@ class MainWindow:
         if beh == Behavior.FUEL:
             tk.Label(p, text="燃料类型", bg=theme.SURFACE, fg=theme.MUTED,
                      font=theme.FONT_SMALL, anchor="w").pack(fill="x", pady=(2, 2))
-            var = tk.StringVar(value=FUELS[cell.fuel].name_cn if cell.fuel else "空燃料棒")
-            om = tk.OptionMenu(p, var, *[f.name_cn for f in FUELS.values()],
+            var = tk.StringVar(value=fuel_label(FUELS[cell.fuel]) if cell.fuel else "空燃料棒")
+            om = tk.OptionMenu(p, var, *[fuel_label(f) for f in FUELS.values()],
                                command=lambda v: self._set_fuel(cell, v))
             om.configure(bg=theme.SURFACE2, fg=theme.INK, activebackground=theme.BORDER,
                          highlightthickness=0, font=theme.FONT_SMALL, anchor="w")
@@ -621,7 +629,8 @@ class MainWindow:
     # ---------------- 设置回调 ----------------
     def _set_fuel(self, cell, name):
         for ft in FUELS.values():
-            if ft.name_cn == name:
+            # 兼容带「（可自燃）」后缀的显示名与不带后缀的原始译名
+            if name in (fuel_label(ft), ft.name_cn):
                 cell.fuel = ft.key
                 break
         cell.has_rod = cell.fuel_type is not None and cell.fuel != "rbmk_fuel_empty"
