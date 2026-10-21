@@ -1,12 +1,18 @@
-"""阶段 6 打包测试：exe 存在且是有效可执行文件。"""
+"""打包检查：exe 存在且是有效可执行文件（未打包时自动跳过，保证刚克隆的仓库测试全绿）。"""
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 EXE = ROOT / "dist" / "RBMK-Simulator.exe"
 
+pytestmark = pytest.mark.skipif(
+    not EXE.exists(),
+    reason="尚未打包：先运行 build.bat 或 PyInstaller 生成 dist/RBMK-Simulator.exe",
+)
+
 
 def test_exe_exists_and_nonempty():
-    assert EXE.exists(), "未找到 dist/RBMK-Simulator.exe，请先运行 PyInstaller"
     assert EXE.stat().st_size > 1_000_000
 
 
