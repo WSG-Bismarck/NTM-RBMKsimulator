@@ -516,7 +516,7 @@ class MainWindow:
             self._prop_row("裂变产生中子类型", "ntype_out")
         if beh == Behavior.CONTROL:
             auto = cell.comp in (ComponentType.RBMK_CONTROL_AUTO, ComponentType.RBMK_CONTROL_REASIM_AUTO)
-            self._prop_row("当前插入度" if auto else "有效 level", "level")
+            self._prop_row("当前插入度" if auto else "插入深度", "level")
             if cell.comp in REASIM_CONTROL_COMPONENTS:
                 self._prop_row("供电需求（移动时）", "power_need")
                 self._prop_row("能量缓冲", "power_buffer")
@@ -580,10 +580,12 @@ class MainWindow:
                 "ntype_out": NTYPE_NAMES_CN.get(ft.r_type.value, ft.r_type.value),
             })
         if behavior_of(cell.comp) == Behavior.CONTROL:
-            if cell.comp == ComponentType.RBMK_CONTROL_AUTO:
-                vals["level"] = f"{cell.level:.3f}（目标 {cell.target_level:.3f}）"
+            if cell.comp in (ComponentType.RBMK_CONTROL_AUTO, ComponentType.RBMK_CONTROL_REASIM_AUTO):
+                cur = (1.0 - cell.level) * 100.0
+                tgt = (1.0 - cell.target_level) * 100.0
+                vals["level"] = f"{cur:.0f}%（目标 {tgt:.0f}%）"
             else:
-                vals["level"] = f"{1.0 - self.model.effective_insertion(cell) / 100.0:.2f}"
+                vals["level"] = f"{self.model.effective_insertion(cell):.0f}%"
         if cell.comp in REASIM_CONTROL_COMPONENTS:
             vals["power_need"] = f"{CONTROL_POWER_CONSUMPTION:,} HE/tick"
             vals["power_buffer"] = f"{CONTROL_POWER_BUFFER:,} HE"
@@ -716,8 +718,9 @@ class MainWindow:
         self._lbl_global.pack(fill="x")
         sc = tk.Scale(p, from_=0, to=100, orient="horizontal", showvalue=False,
                       bg=theme.SURFACE, fg=theme.INK, troughcolor=theme.BORDER,
-                      highlightthickness=0, command=self._set_global)
+                      highlightthickness=0)
         sc.set(self.model.global_insertion)
+        sc.configure(command=self._set_global)   # set() 会触发 command，必须放到 set 之后
         sc.pack(fill="x", pady=(0, 10))
         tk.Label(p, text="分组插入深度（拖动即覆盖该组）", bg=theme.SURFACE,
                  fg=theme.MUTED, font=theme.FONT_SMALL, anchor="w").pack(fill="x")
@@ -730,8 +733,9 @@ class MainWindow:
             cur = self.model.group_insertion.get(g.value)
             scg = tk.Scale(row, from_=0, to=100, orient="horizontal", showvalue=False,
                            bg=theme.SURFACE, fg=theme.INK, troughcolor=theme.BORDER,
-                           highlightthickness=0, command=lambda v, gg=g: self._set_group_val(gg, v))
+                           highlightthickness=0)
             scg.set(cur if cur is not None else self.model.global_insertion)
+            scg.configure(command=lambda v, gg=g: self._set_group_val(gg, v))
             scg.pack(side="left", fill="x", expand=True)
         _btn(p, "重置分组覆盖", self._reset_groups).pack(fill="x", pady=(8, 0))
 
@@ -880,17 +884,17 @@ class MainWindow:
         self._refresh_prop_values()
 
     def _set_single(self, cell, v):
-        cell.insertion = float(v)
+        self.model.touch_single(cell, float(v))
         self.grid_editor.redraw()
 
     def _clear_single(self, cell):
         """取消单根覆盖，重新跟随分组/全局设定。"""
-        cell.insertion = None
+        self.model.clear_single(cell)
         self.render_panel()
         self.grid_editor.redraw()
 
     def _set_global(self, v):
-        self.model.global_insertion = float(v)
+        self.model.touch_global(float(v))
         if getattr(self, "_lbl_global", None) is not None:
             self._lbl_global.configure(text=f"全局插入深度 {self.model.global_insertion:.0f}%")
         self.grid_editor.redraw()
@@ -914,7 +918,7 @@ class MainWindow:
         self.render_panel()
 
     def _set_group_val(self, group, v):
-        self.model.group_insertion[group.value] = float(v)
+        self.model.touch_group(group, float(v))
         self.grid_editor.redraw()
 
     def _reset_groups(self):

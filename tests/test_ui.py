@@ -1165,19 +1165,21 @@ def test_global_and_group_control_work_after_selecting():
         win._set_global(70)
         assert win.model.effective_insertion(cell) == 70.0
 
-        # 分组控制优先于全局
+        # 分组后设定 → 覆盖全局
         cell.group = ControlGroup.RED
         win._set_group_val(ControlGroup.RED, 30)
         assert win.model.effective_insertion(cell) == 30.0
-        win._set_global(90)
-        assert win.model.effective_insertion(cell) == 30.0
 
-        # 单根覆盖 → 再清除，回到分组
+        # 再拉全局 → 全局反过来覆盖分组（后输入覆盖前输入）
+        win._set_global(90)
+        assert win.model.effective_insertion(cell) == 90.0
+
+        # 单根后设定 → 覆盖全局；清除后回到全局
         win._set_single(cell, 10)
         assert win.model.effective_insertion(cell) == 10.0
         win._clear_single(cell)
         assert cell.insertion is None
-        assert win.model.effective_insertion(cell) == 30.0
+        assert win.model.effective_insertion(cell) == 90.0
     finally:
         root.destroy()
 

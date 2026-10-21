@@ -26,6 +26,7 @@ class Cell:
     fuel: Optional[str] = None          # 燃料 key（燃料类柱子）
     group: Optional[ControlGroup] = None               # None = 空置（默认，不受分组控制）
     insertion: Optional[float] = None   # 单根插入深度 0..100；None=用分组/全局
+    insertion_seq: int = 0              # 单根设定的先后序号（后输入覆盖前输入）
     # 自动控制棒（rbmk_control_auto）
     level: float = 0.0                  # 当前插入度 = 中子透过率（模组 getMult()）
     heat_lower: float = 0.0             # 温度下限
@@ -113,6 +114,9 @@ class ReactorModel:
     grid: list[list[Optional[Cell]]] = field(default_factory=list)
 
     turbines: dict[str, str] = field(default_factory=dict)   # 蒸汽类型 -> 汽轮机种类
+    control_seq: int = 0                                     # 控制棒操作的全局递增序号
+    global_insertion_seq: int = 0                            # 全局设定的序号
+    group_insertion_seq: dict[str, int] = field(default_factory=dict)   # 各组设定的序号
     global_insertion: float = 0.0   # 初始状态：所有控制棒 0% 插入（完全抽出）
     group_insertion: dict[str, Optional[float]] = field(default_factory=dict)
     coolant_flow: float = 50.0
@@ -183,16 +187,46 @@ class ReactorModel:
         self.turbines[steam_key] = kind
 
     def effective_insertion(self, cell: Cell) -> float:
-        """单根 > 分组 > 全局。返回 0..100。"""
+        """当前生效的插入深度（0..100）：全局 / 分组 / 单根中**最后设定**的那个生效。"""
         if behavior_of(cell.comp) != Behavior.CONTROL:
             return 0.0
-        if cell.insertion is not None:
-            return _clamp(cell.insertion, 0.0, 100.0)
+        best_seq = -1
+        best = _clamp(self.global_insertion, 0.0, 100.0)
+        if self.global_insertion_seq >= best_seq:
+            best_seq, best = self.global_insertion_seq, _clamp(self.global_insertion, 0.0, 100.0)
         if cell.group is not None:
-            g = self.group_insertion.get(cell.group.value)
-            if g is not None:
-                return _clamp(g, 0.0, 100.0)
-        return _clamp(self.global_insertion, 0.0, 100.0)
+            g = cell.group.value
+            if g in self.group_insertion and self.group_insertion_seq.get(g, 0) >= best_seq:
+                best_seq = self.group_insertion_seq.get(g, 0)
+                best = _clamp(self.group_insertion[g], 0.0, 100.0)
+        if cell.insertion is not None and cell.insertion_seq >= best_seq:
+            best = _clamp(cell.insertion, 0.0, 100.0)
+        return best
+
+    def _next_seq(self) -> int:
+        self.control_seq += 1
+        return self.control_seq
+
+    def touch_global(self, value: float) -> None:
+        """设定全局插入深度，并记为最新操作。"""
+        self.global_insertion = _clamp(value, 0.0, 100.0)
+        self.global_insertion_seq = self._next_seq()
+
+    def touch_group(self, group: str, value: float) -> None:
+        """设定某一分组的插入深度，并记为最新操作。"""
+        key = group.value if hasattr(group, "value") else str(group)
+        self.group_insertion[key] = _clamp(value, 0.0, 100.0)
+        self.group_insertion_seq[key] = self._next_seq()
+
+    def touch_single(self, cell: Cell, value: float) -> None:
+        """设定单根插入深度，并记为最新操作。"""
+        cell.insertion = _clamp(value, 0.0, 100.0)
+        cell.insertion_seq = self._next_seq()
+
+    def clear_single(self, cell: Cell) -> None:
+        """取消单根覆盖。"""
+        cell.insertion = None
+        cell.insertion_seq = 0
 
     def to_dict(self) -> dict:
         return {

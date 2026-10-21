@@ -77,17 +77,28 @@ def test_place_erase_counts():
 
 
 def test_control_insertion_priority():
+    """控制棒插入深度：全局 / 分组 / 单根中最后设定的那个生效。"""
     m = ReactorModel(rows=3, cols=3)
-    m.global_insertion = 40.0
     cell = m.place(0, 0, ComponentType.RBMK_CONTROL, group=ControlGroup.RED)
-    # 默认用全局
-    assert m.effective_insertion(cell) == 40.0
-    # 分组覆盖
-    m.group_insertion["RED"] = 75.0
-    assert m.effective_insertion(cell) == 75.0
-    # 单根覆盖优先于分组
-    cell.insertion = 10.0
-    assert m.effective_insertion(cell) == 10.0
+    assert m.effective_insertion(cell) == 0.0          # 初始 0%
+
+    m.touch_global(40.0)
+    assert m.effective_insertion(cell) == 40.0         # 全局最新
+
+    m.touch_group(ControlGroup.RED, 75.0)
+    assert m.effective_insertion(cell) == 75.0         # 分组晚于全局 → 分组生效
+
+    m.touch_single(cell, 10.0)
+    assert m.effective_insertion(cell) == 10.0         # 单根最晚 → 单根生效
+
+    m.touch_global(60.0)
+    assert m.effective_insertion(cell) == 60.0         # 再次拉全局 → 全局覆盖单根
+
+    m.touch_single(cell, 20.0)
+    assert m.effective_insertion(cell) == 20.0         # 再拖单根 → 单根重新生效
+
+    m.clear_single(cell)
+    assert m.effective_insertion(cell) == 60.0         # 清除单根后回落到全局（分组更早）
     # 非控制棒返回 0
     fuel = m.place(1, 1, ComponentType.RBMK_ROD, fuel="rbmk_fuel_ueu")
     assert m.effective_insertion(fuel) == 0.0
